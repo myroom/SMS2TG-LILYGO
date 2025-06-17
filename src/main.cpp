@@ -1,3 +1,6 @@
+// Ссылка на проект
+// https://randomnerdtutorials.com/esp32-sim800l-publish-data-to-cloud/
+
 #include <Arduino.h>
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
@@ -8,6 +11,10 @@
 #define MODEM_TX 27
 #define SerialMon Serial
 #define SerialAT Serial1
+
+// Настройка TinyGSM библиотеки
+#define TINY_GSM_MODEM_SIM800      // Modem is SIM800
+#define TINY_GSM_RX_BUFFER   1024  // Set RX buffer to 1Kb
 
 // Настройки GPRS
 const char apn[]  = "your_apn"; // Замените на APN вашего оператора
