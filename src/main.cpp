@@ -1,107 +1,100 @@
-// Ссылка на проект
-// https://randomnerdtutorials.com/esp32-sim800l-publish-data-to-cloud/
+// GPRS настройки
+const char apn[]  = "internet"; // Замените на APN вашего оператора
+const char user[] = "";
+const char pass[] = "";
 
 #include <Arduino.h>
-#include <TinyGsmClient.h>
-#include <ArduinoHttpClient.h>
-//#include "utilities.h" // Раскомментируйте, если добавите файл utilities.h для управления питанием
+#include <StreamDebugger.h>
 
-// Пины для SIM800
-#define MODEM_RX 26
-#define MODEM_TX 27
+// Устанавливаем порт для отладки (к Serial Monitor, по умолчанию скорость 115200)
 #define SerialMon Serial
+
+// Устанавливаем порт для AT команд (к модулю SIM800)
 #define SerialAT Serial1
 
+// TTGO T-Call пины
+#define MODEM_RST            5
+#define MODEM_PWKEY          4
+#define MODEM_POWER_ON       23
+#define MODEM_TX             27
+#define MODEM_RX             26
+
 // Настройка TinyGSM библиотеки
-#define TINY_GSM_MODEM_SIM800      // Modem is SIM800
-#define TINY_GSM_RX_BUFFER   1024  // Set RX buffer to 1Kb
+#define TINY_GSM_MODEM_SIM800      // Модем SIM800
+#define TINY_GSM_RX_BUFFER   1024  // Устанавливаем буфер RX на 1Кб
+//#define DUMP_AT_COMMANDS // для отладки AT команд
 
-// Настройки GPRS
-const char apn[]  = "your_apn"; // Замените на APN вашего оператора
-const char gprsUser[] = "";
-const char gprsPass[] = "";
+#include <TinyGsmClient.h>
 
-// Telegram
-const char botToken[] = "YOUR_BOT_TOKEN"; // Токен вашего бота
-const char chatId[] = "YOUR_CHAT_ID";     // Ваш chat_id
+#ifdef DUMP_AT_COMMANDS
+  #include <StreamDebugger.h>
+  StreamDebugger debugger(SerialAT, SerialMon);
+  TinyGsm modem(debugger);
+#else
+  TinyGsm modem(SerialAT);
+#endif
 
-TinyGsm modem(SerialAT);
+// Инициализация GSM клиента
 TinyGsmClient client(modem);
-HttpClient http(client, "api.telegram.org", 80); // Используем HTTP, т.к. SIM800L не поддерживает SSL
 
-void sendToTelegram(const String& text) {
-  String url = "/bot" + String(botToken) + "/sendMessage";
-  String contentType = "application/x-www-form-urlencoded";
-  String postData = "chat_id=" + String(chatId) + "&text=" + text;
+void modemPowerOn() {
+  pinMode(MODEM_PWKEY, OUTPUT);
+  pinMode(MODEM_POWER_ON, OUTPUT);
+  pinMode(MODEM_RST, OUTPUT);
 
-  http.beginRequest();
-  http.post(url);
-  http.sendHeader("Content-Type", contentType);
-  http.sendHeader("Content-Length", postData.length());
-  http.beginBody();
-  http.print(postData);
-  http.endRequest();
+  digitalWrite(MODEM_PWKEY, LOW);
+  digitalWrite(MODEM_POWER_ON, HIGH);
+  digitalWrite(MODEM_RST, HIGH);
+  delay(1000);
 
-  int statusCode = http.responseStatusCode();
-  String response = http.responseBody();
-  SerialMon.print("Telegram response: ");
-  SerialMon.println(response);
+  digitalWrite(MODEM_PWKEY, HIGH);
+  delay(1000);
+  digitalWrite(MODEM_PWKEY, LOW);
+  delay(1000);
 }
 
 void setup() {
   SerialMon.begin(115200);
   delay(10);
 
+  modemPowerOn();
+
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(3000);
 
-  // Если у вас версия с IP5306, раскомментируйте следующую строку и добавьте файл utilities.h:
-  // setupModem();
-
-  // Инициализация модема
-  SerialMon.println("Initializing modem...");
+  SerialMon.println("Модем инициализируется...");
   modem.restart();
 
-  // Подключение к GPRS
-  SerialMon.print("Connecting to network...");
-  if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
-    SerialMon.println(" fail");
+  SerialMon.print("Ожидание сети...");
+  if (!modem.waitForNetwork()) {
+    SerialMon.println(" Нет сети");
     while (true);
   }
-  SerialMon.println(" success");
+  SerialMon.println(" Сеть найдена");
 
-  // Настройка SIM800L на прием SMS
-  SerialAT.println("AT+CMGF=1"); // Текстовый режим SMS
-  delay(500);
-  SerialAT.println("AT+CNMI=2,2,0,0,0"); // Уведомления о новых SMS
-  delay(500);
+  if (modem.isNetworkConnected()) {
+    SerialMon.println("Успешно подключено к сети!");
+  } else {
+    SerialMon.println("Ошибка подключения к сети");
+    while (true);
+  }
 
-  SerialMon.println("Готов к приему SMS");
+  SerialMon.print("Подключение к GPRS...");
+  if (!modem.gprsConnect(apn, user, pass)) {
+    SerialMon.println(" Ошибка GPRS");
+    while (true);
+  }
+  SerialMon.println(" GPRS подключен");
+
+  // Отправка тестового SMS
+  SerialMon.print("Отправка SMS...");
+  if (modem.sendSMS("+34628485623", "Test SMS from TTGO T-Call!")) {
+    SerialMon.println(" SMS отправлено успешно!");
+  } else {
+    SerialMon.println(" Ошибка отправки SMS");
+  }
 }
 
 void loop() {
-  if (SerialAT.available()) {
-    String sms = SerialAT.readString();
-    SerialMon.println("RAW: " + sms);
-
-    if (sms.indexOf("+CMT:") != -1) {
-      int start = sms.indexOf("+CMT:") + 5;
-      int end = sms.indexOf('"', start);
-      String phoneNumber = sms.substring(start + 1, end);
-
-      start = sms.indexOf('"', end + 1) + 2;
-      String message = sms.substring(start);
-
-      SerialMon.println("\nНовое SMS получено!");
-      SerialMon.println("-------------------");
-      SerialMon.println("Отправитель: " + phoneNumber);
-      SerialMon.println("Сообщение: " + message);
-      SerialMon.println("-------------------");
-
-      // Отправка в Telegram
-      String text = "SMS от: " + phoneNumber + "\n" + message;
-      sendToTelegram(text);
-    }
-  }
+  // ничего не делаем
 }
-
