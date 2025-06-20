@@ -75,16 +75,10 @@ void sendDataOverHttp(const String& phone, const String& message, const String& 
   SerialMon.println("Sending data to server...");
   SerialMon.println(postData);
 
-  String url = "api/messages"; // Путь на вашем сервере, куда отправлять данные
+  String url = "/api/messages"; // Путь на вашем сервере, куда отправлять данные
   String contentType = "application/json";
 
-  http.beginRequest();
-  http.post(url);
-  http.sendHeader("Content-Type", contentType);
-  http.sendHeader("Content-Length", postData.length());
-  http.beginBody();
-  http.print(postData);
-  http.endRequest();
+  http.post(url, contentType, postData);
 
   int statusCode = http.responseStatusCode();
   String response = http.responseBody();
@@ -92,6 +86,8 @@ void sendDataOverHttp(const String& phone, const String& message, const String& 
   SerialMon.println(statusCode);
   SerialMon.print("Server response: ");
   SerialMon.println(response);
+  
+  http.stop();
 }
 
 void sendSMS(const String& phone, const String& message) {
@@ -118,7 +114,7 @@ void readAllUnreadSMS() {
   }
 }
 
-void sendPing() {
+bool sendPing() {
   // Формируем JSON для ping
   ArduinoJson::DynamicJsonDocument jsonDoc(128);
   jsonDoc["imei"] = imei;
@@ -130,16 +126,10 @@ void sendPing() {
   SerialMon.println("Sending ping to server...");
   SerialMon.println(postData);
 
-  String url = "api/ping"; // Путь для ping
+  String url = "/api/ping"; // Путь для ping
   String contentType = "application/json";
 
-  http.beginRequest();
-  http.post(url);
-  http.sendHeader("Content-Type", contentType);
-  http.sendHeader("Content-Length", postData.length());
-  http.beginBody();
-  http.print(postData);
-  http.endRequest();
+  http.post(url, contentType, postData);
 
   int statusCode = http.responseStatusCode();
   String response = http.responseBody();
@@ -148,32 +138,25 @@ void sendPing() {
   SerialMon.print("Ping server response: ");
   SerialMon.println(response);
 
+  // Закрываем соединение перед обработкой ответа
+  http.stop();
+
   if (statusCode == 200) {
     // Успешный HTTP запрос, парсим JSON
     ArduinoJson::DynamicJsonDocument responseDoc(128);
     deserializeJson(responseDoc, response);
 
     if (!responseDoc["status"].isNull() && responseDoc["status"] == "error") {
-      pingErrorCount++;
-      SerialMon.print("Ping error detected. Count: ");
-      SerialMon.println(pingErrorCount);
-    } else {
-      // Успешный ping, сбрасываем счетчик
-      pingErrorCount = 0;
-      SerialMon.println("Ping successful, error count reset.");
+      SerialMon.println("Ping error detected in response.");
+      return false; // Ошибка, если сервер вернул status: "error"
     }
+    
+    SerialMon.println("Ping successful.");
+    return true; // Успешный ping
   } else {
-    // Ошибка HTTP - тоже считаем за ошибку ping
-    pingErrorCount++;
-    SerialMon.print("Ping HTTP error. Count: ");
-    SerialMon.println(pingErrorCount);
-  }
-
-  // Проверяем watchdog
-  if (pingErrorCount >= maxPingErrors) {
-    SerialMon.println("Max ping errors reached. Rebooting device...");
-    delay(1000); // Даем время на отправку сообщения в лог
-    ESP.restart();
+    // Ошибка HTTP
+    SerialMon.println("Ping HTTP error.");
+    return false;
   }
 }
 

@@ -68,10 +68,6 @@ void setup() {
   SerialMon.print("Device IMEI: ");
   SerialMon.println(imei);
 
-  // Пример формата сообщения
-  //SerialMon.println("Example JSON message:");
-  //SerialMon.println("{\n  \"imei\": \"" + imei + "\",\n  \"date\": \"24/01/01,12:34:56+00\",\n  \"phone\": \"+79991234567\",\n  \"message\": \"SMS text\"\n}");
-
   SerialAT.println("AT+CMGF=1"); // Текстовый режим SMS
   delay(500);
   SerialAT.println("AT+CNMI=2,1,0,0,0"); // Уведомления о новых SMS (CMTI)
@@ -101,10 +97,6 @@ void setup() {
   }
   SerialMon.println(" GPRS connected");
 
-  // Получаем IMEI модема
-  imei = modem.getIMEI();
-  SerialMon.println("IMEI: " + imei);
-
   readAllUnreadSMS();
 
   SerialMon.println("Waiting for incoming SMS...");
@@ -114,7 +106,25 @@ void loop() {
   // Отправка ping раз в 30 секунд
   if (millis() - lastPingSend > pingInterval) {
     lastPingSend = millis();
-    sendPing();
+    if (sendPing()) {
+      // Успешный ping, сбрасываем счетчик
+      if (pingErrorCount > 0) {
+        SerialMon.println("Ping successful, error count reset.");
+        pingErrorCount = 0;
+      }
+    } else {
+      // Ошибка ping
+      pingErrorCount++;
+      SerialMon.print("Ping error. Count: ");
+      SerialMon.println(pingErrorCount);
+    }
+
+    // Проверяем watchdog
+    if (pingErrorCount >= maxPingErrors) {
+      SerialMon.println("Max ping errors reached. Rebooting device...");
+      delay(1000); // Даем время на отправку сообщения в лог
+      ESP.restart();
+    }
   }
 
   // Отправка тестового сообщения раз в минуту
