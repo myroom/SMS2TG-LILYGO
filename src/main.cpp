@@ -3,9 +3,12 @@ const char apn[]  = "internet"; // Замените на APN вашего опе
 const char user[] = "";
 const char pass[] = "";
 
+// Адрес вашего сервера
+const char server[] = "zerosim.ru"; // <-- Укажите здесь адрес вашего сервера
+const int  port = 80;
+
 #include <Arduino.h>
 #include <StreamDebugger.h>
-#include "utils.h"
 
 // Устанавливаем порт для отладки (к Serial Monitor, по умолчанию скорость 115200)
 #define SerialMon Serial
@@ -28,6 +31,7 @@ const char pass[] = "";
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
 
+
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
   StreamDebugger debugger(SerialAT, SerialMon);
@@ -36,74 +40,19 @@ const char pass[] = "";
   TinyGsm modem(SerialAT);
 #endif
 
-// Инициализация GSM клиента
+// Инициализация GSM и HTTP клиентов
 TinyGsmClient client(modem);
-HttpClient http(client, "api.telegram.org", 80);
+HttpClient http(client, server, port);
 
-// Параметры Telegram (имя бота @sms2tg_direct_bot)
-const char botToken[] = "7527301010:AAE3p_jGIoisPx3h4v1txYbXJDVmwGR1NF0"; // <-- Вставьте сюда токен вашего бота
-const char chatId[] = "-4676572107";     // <-- Вставьте сюда ваш chat_id
+String imei = "";
+int pingErrorCount = 0; // Счетчик ошибок ping
+const int maxPingErrors = 10; // Максимальное количество ошибок ping до перезагрузки
+unsigned long lastTestSend = 0; // Время последней отправки тестового сообщения
+const unsigned long testInterval = 60000; // Интервал между тестовыми сообщениями (1 минута)
+unsigned long lastPingSend = 0; // Время последней отправки ping
+const unsigned long pingInterval = 30000; // Интервал между ping (30 секунд)
 
-void modemPowerOn() {
-  pinMode(MODEM_PWKEY, OUTPUT);
-  pinMode(MODEM_POWER_ON, OUTPUT);
-  pinMode(MODEM_RST, OUTPUT);
-
-  digitalWrite(MODEM_PWKEY, LOW);
-  digitalWrite(MODEM_POWER_ON, HIGH);
-  digitalWrite(MODEM_RST, HIGH);
-  delay(1000);
-
-  digitalWrite(MODEM_PWKEY, HIGH);
-  delay(1000);
-  digitalWrite(MODEM_PWKEY, LOW);
-  delay(1000);
-}
-
-void sendToTelegram(const String& text) {
-  String url = "/bot" + String(botToken) + "/sendMessage";
-  String contentType = "application/x-www-form-urlencoded";
-  String postData = "chat_id=" + String(chatId) + "&text=" + text;
-
-  http.beginRequest();
-  http.post(url);
-  http.sendHeader("Content-Type", contentType);
-  http.sendHeader("Content-Length", postData.length());
-  http.beginBody();
-  http.print(postData);
-  http.endRequest();
-
-  int statusCode = http.responseStatusCode();
-  String response = http.responseBody();
-  SerialMon.print("Telegram HTTP статус: ");
-  SerialMon.println(statusCode);
-  SerialMon.print("Ответ Telegram: ");
-  SerialMon.println(response);
-}
-
-void sendSMS(const String& phone, const String& message) {
-  SerialMon.print("Отправка SMS на номер " + phone + "...");
-  if (modem.sendSMS(phone, message)) {
-    SerialMon.println(" SMS отправлено успешно!");
-  } else {
-    SerialMon.println(" Ошибка отправки SMS");
-  }
-}
-
-void readAllUnreadSMS() {
-  SerialAT.println("AT+CMGF=1");
-  delay(200);
-  // Опросим первые 20 ячеек SIM-карты (можно увеличить при необходимости)
-  for (int i = 1; i <= 20; ++i) {
-    SerialAT.print("AT+CMGR=");
-    SerialAT.println(i);
-    delay(300);
-    // После чтения удаляем SMS
-    SerialAT.print("AT+CMGD=");
-    SerialAT.println(i);
-    delay(100);
-  }
-}
+#include "utils.h"
 
 void setup() {
   SerialMon.begin(115200);
@@ -114,61 +63,72 @@ void setup() {
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(3000);
 
+  // Получаем IMEI модема до инициализации сети
+  imei = modem.getIMEI();
+  SerialMon.print("Device IMEI: ");
+  SerialMon.println(imei);
+
+  // Пример формата сообщения
+  //SerialMon.println("Example JSON message:");
+  //SerialMon.println("{\n  \"imei\": \"" + imei + "\",\n  \"date\": \"24/01/01,12:34:56+00\",\n  \"phone\": \"+79991234567\",\n  \"message\": \"SMS text\"\n}");
+
   SerialAT.println("AT+CMGF=1"); // Текстовый режим SMS
   delay(500);
   SerialAT.println("AT+CNMI=2,1,0,0,0"); // Уведомления о новых SMS (CMTI)
   delay(500);
 
-  SerialMon.println("Модем инициализируется...");
+  SerialMon.println("Modem is initializing...");
   modem.restart();
 
-  SerialMon.print("Ожидание сети...");
+  SerialMon.print("Waiting for GSM network...");
   if (!modem.waitForNetwork()) {
-    SerialMon.println(" Нет сети");
+    SerialMon.println(" No network");
     while (true);
   }
-  SerialMon.println(" Сеть найдена");
+  SerialMon.println(" Network found");
 
   if (modem.isNetworkConnected()) {
-    SerialMon.println("Успешно подключено к сети!");
+    SerialMon.println("Successfully connected to network!");
   } else {
-    SerialMon.println("Ошибка подключения к сети");
+    SerialMon.println("Network connection error");
     while (true);
   }
 
-  SerialMon.print("Подключение к GPRS...");
+  SerialMon.print("Connecting to GPRS...");
   if (!modem.gprsConnect(apn, user, pass)) {
-    SerialMon.println(" Ошибка GPRS");
+    SerialMon.println(" GPRS error");
     while (true);
   }
-  SerialMon.println(" GPRS подключен");
+  SerialMon.println(" GPRS connected");
+
+  // Получаем IMEI модема
+  imei = modem.getIMEI();
+  SerialMon.println("IMEI: " + imei);
 
   readAllUnreadSMS();
 
-  SerialMon.println("Ожидаем входящий SMS...");
-
-  // Отправка тестового SMS
-  //sendSMS("+359899041106", "Test SMS from TTGO T-Call!");
-
-  // Отправка тестового сообщения в Telegram
-  //SerialMon.print("Отправка сообщения в Telegram...");
-  //sendToTelegram("Test from TTGO T-Call via GPRS"); // Вызов закомментирован
+  SerialMon.println("Waiting for incoming SMS...");
 }
 
 void loop() {
+  // Отправка ping раз в 30 секунд
+  if (millis() - lastPingSend > pingInterval) {
+    lastPingSend = millis();
+    sendPing();
+  }
+
+  // Отправка тестового сообщения раз в минуту
+  if (millis() - lastTestSend > testInterval) {
+    lastTestSend = millis();
+    String testPhone = "+79991234567";
+    String testMessage = "Test message from device";
+    String testDatetime = "24/01/01,12:34:56+00";
+    sendDataOverHttp(testPhone, testMessage, testDatetime);
+  }
+
   if (SerialAT.available()) {
     String line = SerialAT.readStringUntil('\n');
     line.trim();
-
-    // Обработка входящего звонка (больше не выводим)
-    // if (line == "RING") {
-    //   SerialMon.println("Входящий звонок!");
-    // } else if (line.startsWith("+CLIP:")) {
-    //   int firstQuote = line.indexOf('"');
-    //   int secondQuote = line.indexOf('"', firstQuote + 1);
-    //   String caller = (firstQuote != -1 && secondQuote != -1) ? line.substring(firstQuote + 1, secondQuote) : "";
-    //   SerialMon.println("Номер звонящего: " + caller);
-    // }
 
     // Если пришло уведомление о новом SMS
     if (line.startsWith("+CMTI:")) {
@@ -192,6 +152,7 @@ void loop() {
       }
       String sender = (qn >= 4) ? smsHeader.substring(q[2] + 1, q[3]) : "";
       String datetime = (qn >= 8) ? smsHeader.substring(q[6] + 1, q[7]) : "";
+      String formattedDatetime = formatSmsDatetime(datetime);
 
       // Декодируем UCS2, если в тексте только HEX-цифры
       bool isUCS2 = true;
@@ -212,10 +173,13 @@ void loop() {
         }
         outText = smsText;
       }
-      SerialMon.println("\nНовое SMS!");
-      SerialMon.println("Отправитель: " + sender);
-      SerialMon.println("Дата/время: " + formatSmsDatetime(datetime));
-      SerialMon.println("Текст: " + outText);
+      SerialMon.println("\nNew SMS!");
+      SerialMon.println("Sender: " + sender);
+      SerialMon.println("Date/time: " + formattedDatetime);
+      SerialMon.println("Text: " + outText);
+      
+      // Отправляем данные на сервер
+      sendDataOverHttp(sender, outText, formattedDatetime);
     }
   }
 }
