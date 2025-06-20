@@ -3,6 +3,30 @@
 #include <Arduino.h>
 #include <ArduinoHttpClient.h>
 #include <ArduinoJson.h>
+#include <TinyGsmClient.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+
+// Объявляем глобальные переменные, которые определены в main.cpp
+extern TinyGsm modem;
+extern HttpClient http;
+extern HttpClient httpsClient;
+extern WiFiClientSecure wifiClientSecure;
+extern String imei;
+extern const char* ssid;
+extern const char* password;
+#define SerialMon Serial
+
+// Прототипы функций
+String decodeUCS2(const String& ucs2);
+String formatSmsDatetime(const String& raw);
+void modemPowerOn();
+void sendDataOverHttp(const String& phone, const String& message, const String& datetime);
+void sendDataOverHttpWifi(const String& phone, const String& message, const String& datetime);
+void sendSMS(const String& phone, const String& message);
+void readAllUnreadSMS();
+bool sendPing();
+void setup_wifi();
 
 // Корректная конвертация UCS2 (HEX) в String (UTF-8)
 String decodeUCS2(const String& ucs2) {
@@ -41,6 +65,7 @@ String formatSmsDatetime(const String& raw) {
   return formatted;
 }
 
+// Включение модема
 void modemPowerOn() {
   pinMode(MODEM_PWKEY, OUTPUT);
   pinMode(MODEM_POWER_ON, OUTPUT);
@@ -57,6 +82,7 @@ void modemPowerOn() {
   delay(1000);
 }
 
+// Отправка данных на сервер по HTTP
 void sendDataOverHttp(const String& phone, const String& message, const String& datetime) {
   if (imei.length() == 0) {
     SerialMon.println("IMEI is not available, sending is not possible.");
@@ -90,6 +116,41 @@ void sendDataOverHttp(const String& phone, const String& message, const String& 
   http.stop();
 }
 
+// Отправка данных на сервер по WiFi (HTTPS)
+void sendDataOverHttpWifi(const String& phone, const String& message, const String& datetime) {
+  if (WiFi.status() != WL_CONNECTED) {
+    SerialMon.println("WiFi not connected, cannot send data over WiFi.");
+    return;
+  }
+  
+  ArduinoJson::DynamicJsonDocument jsonDoc(256);
+  jsonDoc["imei"] = imei;
+  jsonDoc["date"] = datetime;
+  jsonDoc["phone"] = phone;
+  jsonDoc["message"] = message;
+
+  String postData;
+  serializeJson(jsonDoc, postData);
+
+  SerialMon.println("Sending data to server over WiFi...");
+  SerialMon.println(postData);
+
+  String url = "/api/confirm"; // Путь на вашем сервере, куда отправлять данные
+  String contentType = "application/json";
+
+  httpsClient.post(url, contentType, postData);
+
+  int statusCode = httpsClient.responseStatusCode();
+  String response = httpsClient.responseBody();
+  SerialMon.print("HTTPS status: ");
+  SerialMon.println(statusCode);
+  SerialMon.print("Server response: ");
+  SerialMon.println(response);
+  
+  httpsClient.stop();
+}
+
+// Отправка SMS
 void sendSMS(const String& phone, const String& message) {
   SerialMon.print("Sending SMS to number " + phone + "...");
   if (modem.sendSMS(phone, message)) {
@@ -99,6 +160,7 @@ void sendSMS(const String& phone, const String& message) {
   }
 }
 
+// Чтение всех непрочитанных SMS
 void readAllUnreadSMS() {
   SerialAT.println("AT+CMGF=1");
   delay(200);
@@ -114,6 +176,7 @@ void readAllUnreadSMS() {
   }
 }
 
+// Отправка ping на сервер
 bool sendPing() {
   // Формируем JSON для ping
   ArduinoJson::DynamicJsonDocument jsonDoc(128);
@@ -157,6 +220,27 @@ bool sendPing() {
     // Ошибка HTTP
     SerialMon.println("Ping HTTP error.");
     return false;
+  }
+}
+
+void setup_wifi() {
+  SerialMon.print("Connecting to WiFi: ");
+  SerialMon.println(ssid);
+  WiFi.begin(ssid, password);
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    SerialMon.print(".");
+    attempts++;
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    SerialMon.println("\nWiFi connected");
+    SerialMon.print("IP address: ");
+    SerialMon.println(WiFi.localIP());
+    // Insecure, but required for this example
+    wifiClientSecure.setInsecure();
+  } else {
+    SerialMon.println("\nWiFi connection failed");
   }
 }
 

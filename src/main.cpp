@@ -3,6 +3,10 @@ const char apn[]  = "internet"; // Замените на APN вашего опе
 const char user[] = "";
 const char pass[] = "";
 
+// WiFi настройки
+const char* ssid = "ORION_2G";
+const char* password = "9268845625";
+
 // Адрес вашего сервера
 const char server[] = "zerosim.ru"; // <-- Укажите здесь адрес вашего сервера
 const int  port = 80;
@@ -30,6 +34,8 @@ const int  port = 80;
 
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 
 
 #ifdef DUMP_AT_COMMANDS
@@ -44,6 +50,10 @@ const int  port = 80;
 TinyGsmClient client(modem);
 HttpClient http(client, server, port);
 
+// Инициализация WiFi и HTTPS клиентов
+WiFiClientSecure wifiClientSecure;
+HttpClient httpsClient(wifiClientSecure, "www.zerosim.ru", 443);
+
 String imei = "";
 int pingErrorCount = 0; // Счетчик ошибок ping
 const int maxPingErrors = 10; // Максимальное количество ошибок ping до перезагрузки
@@ -57,6 +67,8 @@ const unsigned long pingInterval = 30000; // Интервал между ping (3
 void setup() {
   SerialMon.begin(115200);
   delay(10);
+
+  setup_wifi();
 
   modemPowerOn();
 
@@ -133,7 +145,11 @@ void loop() {
     String testPhone = "+79991234567";
     String testMessage = "Test message from device";
     String testDatetime = "24/01/01,12:34:56+00";
-    sendDataOverHttp(testPhone, testMessage, testDatetime);
+    if (WiFi.status() == WL_CONNECTED) {
+        sendDataOverHttpWifi(testPhone, testMessage, testDatetime);
+    } else {
+        sendDataOverHttp(testPhone, testMessage, testDatetime);
+    }
   }
 
   if (SerialAT.available()) {
