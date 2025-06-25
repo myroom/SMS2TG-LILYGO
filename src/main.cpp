@@ -364,13 +364,10 @@ void loop() {
         }
         outText = smsText;
       }
-      logPrintln("\nНовое SMS!");
-      logPrintln("Отправитель: " + sender);
-      logPrintln("Дата/время: " + formattedDatetime);
-      logPrintln("Текст: " + outText);
+      logPrintln("\nНовое SMS!\nОтправитель: " + sender + "\nДата/время: " + formattedDatetime + "\nТекст: " + outText);
       
       // Отправляем SMS в Telegram через WiFi
-      sendToTelegram("SMS от: " + sender + "\nВремя: " + formattedDatetime + "\n" + outText);
+      sendToTelegram("SMS от: " + sender + "\nДата/время: " + formattedDatetime + "\nТекст: " + outText);
     }
   }
 }

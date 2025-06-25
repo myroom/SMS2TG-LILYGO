@@ -23,6 +23,9 @@ extern String imei;
 extern Preferences preferences;
 extern WebServer serverWeb;
 
+// Объявляем функцию логирования из main.cpp
+void logPrintln(const String& msg);
+
 #define AP_SSID "SMS2TG-SETUP"
 #define MDNS_HOSTNAME "SMS2TG-LILYGO"
 
@@ -309,8 +312,8 @@ String formatSmsDatetime(const String& raw) {
   String hour = raw.substring(9, 11);
   String min = raw.substring(12, 14);
   String sec = raw.substring(15, 17);
-  String tz = raw.substring(17); // +12
-  String formatted = day + "." + month + ".20" + year + " " + hour + ":" + min + ":" + sec + " " + tz;
+  //String tz = raw.substring(17); // +12
+  String formatted = day + "." + month + ".20" + year + " " + hour + ":" + min + ":" + sec;
   return formatted;
 }
 
@@ -384,6 +387,14 @@ void sendToTelegram(const String& text) {
   SerialMon.println(statusCode);
   SerialMon.print("Ответ Telegram: ");
   SerialMon.println(response);
+  
+  // Добавляем логирование результата отправки
+  if (statusCode == 200) {
+    logPrintln("Сообщение успешно отправлено в Telegram");
+  } else {
+    logPrintln("Ошибка отправки в Telegram. HTTP код: " + String(statusCode));
+  }
+  
   telegramHttp.stop();
 }
 
