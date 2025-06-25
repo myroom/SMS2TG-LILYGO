@@ -24,6 +24,7 @@ extern Preferences preferences;
 extern WebServer serverWeb;
 
 #define AP_SSID "SMS2TG-SETUP"
+#define MDNS_HOSTNAME "SMS2TG-LILYGO"
 
 // Прототипы функций
 String decodeUCS2(const String& ucs2);
@@ -75,7 +76,7 @@ const char htmlForm[] = R"rawliteral(
         .desc { font-size: 0.75em; color: #444; margin-bottom: 18px; text-align: center; }
         .desc-warning { font-size: 0.75em; color: rgb(255, 0, 0); margin-bottom: 18px; text-align: center; }
         .link { font-size: 0.75em; margin-top: 10px; margin-bottom: 0; text-align: center; }
-        label { display: block; margin-bottom: 6px; font-size: 1.08em; }
+        label { display: block; margin-bottom: 6px; font-size: 1.08em; text-align: left; }
         select, input[type="text"], input[type="password"], textarea, .password-row {
             margin-bottom: 18px;
             font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
@@ -157,7 +158,7 @@ const char htmlForm[] = R"rawliteral(
     <div class="container">
         <h2>SMS2TG-LILYGO</h2>
         <div class="desc">
-           Привет! Чтобы устройство могло передавать полученные SMS в Telegram, необходимо ввести данные WiFi-сети и Telegram.
+           Привет! Чтобы устройство могло передавать полученные SMS в Telegram, необходимо ввести данные WiFi-сети (поддерживаются только сети 2.4 ГГц) и Telegram.
         </div>
         <form action="/save" method="POST">
             <label for="ssid">WiFi сеть:</label>
@@ -170,9 +171,9 @@ const char htmlForm[] = R"rawliteral(
                 <input name="password" id="password" type="password" required minlength="8" maxlength="64" />
                 <button type="button" onclick="togglePassword()" tabindex="-1"><span id="eyeIcon"><svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></span></button>
             </div>
-            <label for="token">Telegram Token:</label>
+            <label for="token">Telegram токен:</label>
             <input name="token" id="token" type="text" required minlength="30" maxlength="60" pattern="[0-9]+:[A-Za-z0-9_-]+" />
-            <label for="chat_id">Chat ID:</label>
+            <label for="chat_id">ID чата:</label>
             <input name="chat_id" id="chat_id" type="text" required pattern="-?[0-9]+" />
             <div class="desc-warning">
               После сохранения устройство перезагрузится и попробует подключиться к WiFi. Если подключение не удастся, точка доступа " + AP_SSID + " появится снова.
@@ -183,6 +184,94 @@ const char htmlForm[] = R"rawliteral(
             </div>
             
         </form>
+    </div>
+</body>
+</html>
+)rawliteral";
+
+// Страница успешного сохранения настроек
+const char savedHtml[] = R"rawliteral(
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Сохранено</title>
+    <style>
+        body {
+            background: #f7f7f7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+        }
+        .container {
+            background: #fff;
+            padding: 32px 18px 24px 18px;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+            width: 100%;
+            max-width: 420px;
+            margin: 40px auto 0 auto;
+            text-align: center;
+        }
+        .icon {
+            font-size: 2.5em;
+            margin-bottom: 12px;
+        }
+        h2 { margin-bottom: 12px; font-size: 1.5em; font-weight: 600; }
+        .desc { font-size: 1.1em; color: #444; margin-bottom: 0; }
+        .next-steps {
+            margin-top: 18px;
+            font-size: 1em;
+            color: #222;
+            text-align: left;
+            background: #f3f6fa;
+            border-radius: 8px;
+            padding: 14px 12px 10px 12px;
+        }
+        .next-steps b { color: #1976d2; }
+        .next-steps a { color: #1976d2; text-decoration: underline; }
+        @media (max-width: 600px) {
+            html, body {
+                height: 100vh;
+                min-height: 100vh;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                display: block;
+            }
+            .container {
+                width: 100vw;
+                min-width: unset;
+                max-width: unset;
+                margin: 0;
+                border-radius: 0;
+                box-sizing: border-box;
+                height: 100vh;
+                padding: 18px 6vw;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>✅ Настройки сохранены!</h2>
+        <div class="desc">Идет перезагрузка устройства...</div>
+        <div class="next-steps">
+          <b>Что будет дальше?</b><br>
+          После перезагрузки устройство попытается подключиться к вашей WiFi-сети.<br><br>
+          <b>Как найти устройство:</b><br>
+          • Попробуйте открыть <a href="http://SMS2TG-LILYGO.local" target="_blank">http://SMS2TG-LILYGO.local</a> в браузере.<br>
+          • Если страница не открывается, посмотрите IP-адрес устройства в настройках вашего роутера и перейдите по нему.<br><br>
+          <b>Если устройство не подключилось к WiFi</b>, точка доступа <span style="color:#1976d2;font-weight:600;">SMS2TG-SETUP</span> появится снова — подключитесь к ней и перейдите по адресу <a href="http://192.168.4.1" target="_blank">http://192.168.4.1</a>.
+        </div>
     </div>
 </body>
 </html>
@@ -301,6 +390,7 @@ void sendToTelegram(const String& text) {
 void startAPMode() {
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID);
+  WiFi.setHostname(MDNS_HOSTNAME);
   IPAddress IP = WiFi.softAPIP();
   SerialMon.print("IP-адрес точки доступа: ");
   SerialMon.println(IP);
@@ -308,9 +398,13 @@ void startAPMode() {
   // Сканируем WiFi-сети
   int n = WiFi.scanNetworks();
   String wifiOptions = "";
+  String seenSSIDs = ",";
   for (int i = 0; i < n; ++i) {
     String ssid = WiFi.SSID(i);
-    wifiOptions += "<option value=\"" + ssid + "\">" + ssid + "</option>";
+    if (seenSSIDs.indexOf("," + ssid + ",") == -1) {
+      wifiOptions += "<option value=\"" + ssid + "\">" + ssid + "</option>";
+      seenSSIDs += ssid + ",";
+    }
   }
   wifiOptions += "<option value=\"__custom__\">Другая сеть...</option>";
 
@@ -333,11 +427,7 @@ void startAPMode() {
         preferences.putString("password", pass);
         preferences.end();
         saveTelegramSettings(token, chat_id);
-        serverWeb.send(200, "text/html; charset=utf-8",
-            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Сохранено</title></head>"
-            "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
-            "<div style='text-align:center;font-size:1.3em;'>✅ Сохранено!<br>Перезагрузка...</div>"
-            "</body></html>");
+        serverWeb.send(200, "text/html; charset=utf-8", savedHtml);
         delay(1500);
         ESP.restart();
     } else {
@@ -406,8 +496,8 @@ const char workHtml[] = R"rawliteral(
             }
             h2 { text-align: center; margin-bottom: 16px; font-size: 1.5em; font-weight: 600; }
             .desc { font-size: 0.95em; color: #444; margin-bottom: 18px; text-align: center; }
-            .status { font-size: 1em; margin-bottom: 12px; color: #1976d2; }
-            .logbox { background: #222; color: #eee; font-size: 0.95em; text-align: left; border-radius: 7px; padding: 10px; min-height: 120px; max-height: 220px; overflow-y: auto; margin-bottom: 18px; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace; }
+            .ipinfo { font-size: 1em; margin-bottom: 12px; color: #1976d2; }
+            .logbox { background: #222; color: #eee; font-size: 0.95em; text-align: left; border-radius: 7px; padding: 10px; min-height: 200px; max-height: 400px; overflow-y: auto; margin-bottom: 18px; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace; }
             form { margin-bottom: 0; }
             button {
                 width: 100%;
@@ -450,11 +540,6 @@ const char workHtml[] = R"rawliteral(
             }
         </style>
         <script>
-        function updateStatus() {
-            fetch('/modem_status').then(r => r.json()).then(data => {
-                document.getElementById('modem_status').innerText = 'Статус модема: ' + data.state + (data.ok ? ' (готов)' : '');
-            });
-        }
         function updateLog() {
             fetch('/modem_log').then(r => r.text()).then(txt => {
                 let logbox = document.getElementById('logbox');
@@ -462,16 +547,21 @@ const char workHtml[] = R"rawliteral(
                 logbox.scrollTop = logbox.scrollHeight;
             });
         }
-        setInterval(updateStatus, 1500);
+        function updateIP() {
+            fetch('/ip').then(r => r.text()).then(txt => {
+                document.getElementById('ipinfo').innerText = 'IP-адрес устройства: ' + txt;
+            });
+        }
         setInterval(updateLog, 1200);
-        window.onload = function() { updateStatus(); updateLog(); };
+        setInterval(updateIP, 3000);
+        window.onload = function() { updateLog(); updateIP(); };
         </script>
     </head>
     <body>
         <div class="container">
             <h2>Рабочий режим</h2>
             <div class="desc">Устройство работает. Для сброса настроек нажмите кнопку ниже.</div>
-            <div id="modem_status" class="status">Статус модема: ...</div>
+            <div id="ipinfo" class="ipinfo">IP-адрес устройства: ...</div>
             <div id="logbox" class="logbox">Логи загружаются...</div>
             <form action="/reset" method="POST">
                 <button type="submit">Сбросить все настройки</button>
@@ -524,6 +614,13 @@ void startWorkModeWeb() {
             "<a class='button' href='http://192.168.4.1'>http://192.168.4.1</a>"
             "<div class='link'>Если страница не открывается, попробуйте вручную ввести адрес в браузере.</div>"
             "</div></body></html>");
+        delay(1500);
+        ESP.restart();
+    });
+
+    serverWeb.on("/ip", HTTP_GET, []() {
+        String ip = WiFi.localIP().toString();
+        serverWeb.send(200, "text/plain; charset=utf-8", ip);
     });
 
     serverWeb.onNotFound([]() {
