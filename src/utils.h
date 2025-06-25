@@ -6,6 +6,10 @@
 #include <TinyGsmClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <FS.h>
+#include <SPIFFS.h>
+#include <WebServer.h>
+#include <Preferences.h>
 
 // Объявляем глобальные переменные, которые определены в main.cpp
 extern TinyGsm modem;
@@ -13,9 +17,12 @@ extern HttpClient http;
 extern HttpClient httpsClient;
 extern WiFiClientSecure wifiClientSecure;
 extern String imei;
-extern const char* ssid;
-extern const char* password;
+// extern const char* ssid;
+// extern const char* password;
 #define SerialMon Serial
+
+extern Preferences preferences;
+extern WebServer serverWeb;
 
 // Прототипы функций
 String decodeUCS2(const String& ucs2);
@@ -27,6 +34,125 @@ void sendSMS(const String& phone, const String& message);
 void readAllUnreadSMS();
 bool sendPing();
 void setup_wifi();
+String loadHtmlForm();
+void sendToTelegram(const String& text);
+void startAPMode();
+bool loadWiFiSettings(String &ssid, String &pass);
+bool loadTelegramSettings(String &token, String &chat_id);
+void saveTelegramSettings(const String &token, const String &chat_id);
+
+// HTML-форма теперь шаблон с плейсхолдером %WIFI_OPTIONS%
+const char htmlForm[] = R"rawliteral(
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WiFi и Telegram Настройки</title>
+    <style>
+        body {
+            background: #f7f7f7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+        }
+        .container { background: #fff; padding: 32px 18px 24px 18px; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); min-width: 320px; max-width: 420px; width: 100%; }
+        h2 { text-align: center; margin-bottom: 16px; font-size: 1.5em; font-weight: 600; }
+        .desc { font-size: 0.75em; color: #444; margin-bottom: 18px; text-align: center; }
+        .desc-warning { font-size: 0.75em; color: rgb(255, 0, 0); margin-bottom: 18px; text-align: center; }
+        .link { font-size: 0.75em; margin-top: 10px; margin-bottom: 0; text-align: center; }
+        label { display: block; margin-bottom: 6px; font-size: 1.08em; }
+        select, input[type="text"], input[type="password"], textarea, .password-row {
+            margin-bottom: 18px;
+            font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+        }
+        select, input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 13px 14px;
+            border: 1px solid #ccc;
+            border-radius: 7px;
+            font-size: 1.15em;
+            box-sizing: border-box;
+            font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+        }
+        textarea { resize: none; min-height: 2.7em; max-height: 5em; }
+        .password-row { display: flex; align-items: center; }
+        .password-row input[type="password"], .password-row input[type="text"] { flex: 1; margin-bottom: 0; }
+        .password-row button { margin-left: 8px; padding: 0 10px; border: none; background: none; cursor: pointer; }
+        .password-row svg { width: 28px; height: 28px; fill: #888; transition: fill 0.2s; }
+        .password-row button:hover svg { fill: #1976d2; }
+        input[type="submit"] {
+            width: 100%;
+            padding: 13px 0;
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 1.18em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 22px;
+        }
+        input[type="submit"]:hover { background: #1256a3; }
+        @media (max-width: 600px) {
+            .container { max-width: 98vw; min-width: unset; margin-left: 2vw; margin-right: 2vw; }
+        }
+    </style>
+    <script>
+    function onSSIDChange(sel) {
+        var custom = document.getElementById('custom_ssid');
+        if(sel.value === '__custom__') { custom.style.display='block'; custom.required=true; } else { custom.style.display='none'; custom.required=false; }
+    }
+    function togglePassword() {
+        var pass = document.getElementById('password');
+        var eye = document.getElementById('eyeIcon');
+        if (pass.type === 'password') {
+            pass.type = 'text';
+            eye.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg>';
+        } else {
+            pass.type = 'password';
+            eye.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/><line x1="4" y1="4" x2="20" y2="20" stroke="#888" stroke-width="2"/></svg>';
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>SMS2TG-LILYGO</h2>
+        <div class="desc">
+           Привет! Чтобы устройство могло передавать SMS в Telegram, необходимо ввести данные WiFi-сети и Telegram.
+        </div>
+        <form action="/save" method="POST">
+            <label for="ssid">WiFi сеть:</label>
+            <select name="ssid_select" id="ssid_select" onchange="onSSIDChange(this)">
+                %WIFI_OPTIONS%
+            </select>
+            <input name="ssid" id="custom_ssid" type="text" style="display:none" placeholder="Введите SSID вручную" minlength="2" maxlength="32" pattern="[A-Za-z0-9_\-]+" />
+            <label for="password">Пароль WiFi:</label>
+            <div class="password-row">
+                <input name="password" id="password" type="password" required minlength="8" maxlength="64" />
+                <button type="button" onclick="togglePassword()" tabindex="-1"><span id="eyeIcon"><svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></span></button>
+            </div>
+            <label for="token">Telegram Token:</label>
+            <input name="token" id="token" type="text" required minlength="30" maxlength="60" pattern="[0-9]+:[A-Za-z0-9_-]+" />
+            <label for="chat_id">Chat ID:</label>
+            <input name="chat_id" id="chat_id" type="text" required pattern="-?[0-9]+" />
+            <div class="desc-warning">
+              После сохранения устройство перезагрузится и попробует подключиться к WiFi. Если подключение не удастся, точка доступа появится снова.
+            </div>
+            <input type="submit" value="Сохранить" />
+            <div class="link">
+              Ссылка на проект: <a href="https://github.com/myroom/SMS2TG-LILYGO" target="_blank">https://github.com/myroom/SMS2TG-LILYGO</a>
+            </div>
+            
+        </form>
+    </div>
+</body>
+</html>
+)rawliteral";
 
 // Корректная конвертация UCS2 (HEX) в String (UTF-8)
 String decodeUCS2(const String& ucs2) {
@@ -82,74 +208,6 @@ void modemPowerOn() {
   delay(1000);
 }
 
-// Отправка данных на сервер по HTTP
-void sendDataOverHttp(const String& phone, const String& message, const String& datetime) {
-  if (imei.length() == 0) {
-    SerialMon.println("IMEI is not available, sending is not possible.");
-    return;
-  }
-  
-  ArduinoJson::DynamicJsonDocument jsonDoc(256);
-  jsonDoc["imei"] = imei;
-  jsonDoc["date"] = datetime;
-  jsonDoc["phone"] = phone;
-  jsonDoc["message"] = message;
-
-  String postData;
-  serializeJson(jsonDoc, postData);
-
-  SerialMon.println("Sending data to server...");
-  SerialMon.println(postData);
-
-  String url = "/api/messages"; // Путь на вашем сервере, куда отправлять данные
-  String contentType = "application/json";
-
-  http.post(url, contentType, postData);
-
-  int statusCode = http.responseStatusCode();
-  String response = http.responseBody();
-  SerialMon.print("HTTP status: ");
-  SerialMon.println(statusCode);
-  SerialMon.print("Server response: ");
-  SerialMon.println(response);
-  
-  http.stop();
-}
-
-// Отправка данных на сервер по WiFi (HTTPS)
-void sendDataOverHttpWifi(const String& phone, const String& message, const String& datetime) {
-  if (WiFi.status() != WL_CONNECTED) {
-    SerialMon.println("WiFi not connected, cannot send data over WiFi.");
-    return;
-  }
-  
-  ArduinoJson::DynamicJsonDocument jsonDoc(256);
-  jsonDoc["imei"] = imei;
-  jsonDoc["date"] = datetime;
-  jsonDoc["phone"] = phone;
-  jsonDoc["message"] = message;
-
-  String postData;
-  serializeJson(jsonDoc, postData);
-
-  SerialMon.println("Sending data to server over WiFi...");
-  SerialMon.println(postData);
-
-  String url = "/api/confirm"; // Путь на вашем сервере, куда отправлять данные
-  String contentType = "application/json";
-
-  httpsClient.post(url, contentType, postData);
-
-  int statusCode = httpsClient.responseStatusCode();
-  String response = httpsClient.responseBody();
-  SerialMon.print("HTTPS status: ");
-  SerialMon.println(statusCode);
-  SerialMon.print("Server response: ");
-  SerialMon.println(response);
-  
-  httpsClient.stop();
-}
-
 // Отправка SMS
 void sendSMS(const String& phone, const String& message) {
   SerialMon.print("Sending SMS to number " + phone + "...");
@@ -176,72 +234,120 @@ void readAllUnreadSMS() {
   }
 }
 
-// Отправка ping на сервер
-bool sendPing() {
-  // Формируем JSON для ping
-  ArduinoJson::DynamicJsonDocument jsonDoc(128);
-  jsonDoc["imei"] = imei;
-  jsonDoc["uptime"] = millis();
-
-  String postData;
-  serializeJson(jsonDoc, postData);
-
-  SerialMon.println("Sending ping to server...");
-  SerialMon.println(postData);
-
-  String url = "/api/ping"; // Путь для ping
-  String contentType = "application/json";
-
-  http.post(url, contentType, postData);
-
-  int statusCode = http.responseStatusCode();
-  String response = http.responseBody();
-  SerialMon.print("Ping HTTP status: ");
-  SerialMon.println(statusCode);
-  SerialMon.print("Ping server response: ");
-  SerialMon.println(response);
-
-  // Закрываем соединение перед обработкой ответа
-  http.stop();
-
-  if (statusCode == 200) {
-    // Успешный HTTP запрос, парсим JSON
-    ArduinoJson::DynamicJsonDocument responseDoc(128);
-    deserializeJson(responseDoc, response);
-
-    if (!responseDoc["status"].isNull() && responseDoc["status"] == "error") {
-      SerialMon.println("Ping error detected in response.");
-      return false; // Ошибка, если сервер вернул status: "error"
-    }
-    
-    SerialMon.println("Ping successful.");
-    return true; // Успешный ping
-  } else {
-    // Ошибка HTTP
-    SerialMon.println("Ping HTTP error.");
-    return false;
+String loadHtmlForm() {
+  if (!SPIFFS.begin(true)) {
+    SerialMon.println("Ошибка монтирования SPIFFS");
+    return "<b>Ошибка файловой системы</b>";
   }
+  File file = SPIFFS.open("/wifi_form.html", "r");
+  if (!file) {
+    SerialMon.println("Не найден wifi_form.html");
+    return "<b>Форма не найдена</b>";
+  }
+  String html = file.readString();
+  file.close();
+  return html;
 }
 
-void setup_wifi() {
-  SerialMon.print("Connecting to WiFi: ");
-  SerialMon.println(ssid);
-  WiFi.begin(ssid, password);
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
-    SerialMon.print(".");
-    attempts++;
+void sendToTelegram(const String& text) {
+  if (WiFi.status() != WL_CONNECTED) {
+    SerialMon.println("WiFi не подключён, отправка в Telegram невозможна.");
+    return;
   }
-  if (WiFi.status() == WL_CONNECTED) {
-    SerialMon.println("\nWiFi connected");
-    SerialMon.print("IP address: ");
-    SerialMon.println(WiFi.localIP());
-    // Insecure, but required for this example
-    wifiClientSecure.setInsecure();
-  } else {
-    SerialMon.println("\nWiFi connection failed");
+  String token, chat_id;
+  if (!loadTelegramSettings(token, chat_id)) {
+    SerialMon.println("Не заданы Telegram token или chat_id!");
+    return;
   }
+  const char telegramServer[] = "api.telegram.org";
+  const int telegramPort = 443;
+  WiFiClientSecure telegramClient;
+  telegramClient.setInsecure();
+  HttpClient telegramHttp(telegramClient, telegramServer, telegramPort);
+
+  String url = "/bot" + token + "/sendMessage";
+  String postData = "chat_id=" + chat_id + "&text=" + text;
+  String contentType = "application/x-www-form-urlencoded";
+
+  telegramHttp.post(url, contentType, postData);
+  int statusCode = telegramHttp.responseStatusCode();
+  String response = telegramHttp.responseBody();
+  SerialMon.print("Статус HTTP Telegram: ");
+  SerialMon.println(statusCode);
+  SerialMon.print("Ответ Telegram: ");
+  SerialMon.println(response);
+  telegramHttp.stop();
+}
+
+void startAPMode() {
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP("SMS2TG-SETUP");
+  IPAddress IP = WiFi.softAPIP();
+  SerialMon.print("IP-адрес точки доступа: ");
+  SerialMon.println(IP);
+
+  // Сканируем WiFi-сети
+  int n = WiFi.scanNetworks();
+  String wifiOptions = "";
+  for (int i = 0; i < n; ++i) {
+    String ssid = WiFi.SSID(i);
+    wifiOptions += "<option value=\"" + ssid + "\">" + ssid + "</option>";
+  }
+  wifiOptions += "<option value=\"__custom__\">Другая сеть...</option>";
+
+  String page = String(htmlForm);
+  page.replace("%WIFI_OPTIONS%", wifiOptions);
+
+  serverWeb.on("/", HTTP_GET, [page]() mutable {
+    serverWeb.send(200, "text/html", page);
+  });
+  serverWeb.on("/save", HTTP_POST, []() {
+    String ssid = serverWeb.arg("ssid_select");
+    if (ssid == "__custom__") ssid = serverWeb.arg("ssid");
+    String pass = serverWeb.arg("password");
+    String token = serverWeb.arg("token");
+    String chat_id = serverWeb.arg("chat_id");
+    if (ssid.length() > 0 && pass.length() > 0 && token.length() > 0 && chat_id.length() > 0) {
+      preferences.begin("wifi", false);
+      preferences.putString("ssid", ssid);
+      preferences.putString("password", pass);
+      preferences.end();
+      saveTelegramSettings(token, chat_id);
+      serverWeb.send(200, "text/html", "<b>Сохранено! Перезагрузка...</b>");
+      delay(1500);
+      ESP.restart();
+    } else {
+      serverWeb.send(200, "text/html", "Ошибка: заполните все поля");
+    }
+  });
+  serverWeb.onNotFound([]() {
+    serverWeb.send(404, "text/html", "<b>Страница не найдена</b>");
+  });
+  serverWeb.begin();
+  SerialMon.println("Web-интерфейс настроек запущен");
+}
+
+bool loadWiFiSettings(String &ssid, String &pass) {
+  preferences.begin("wifi", true);
+  ssid = preferences.getString("ssid", "");
+  pass = preferences.getString("password", "");
+  preferences.end();
+  return (ssid.length() > 0 && pass.length() > 0);
+}
+
+bool loadTelegramSettings(String &token, String &chat_id) {
+  preferences.begin("telegram", true);
+  token = preferences.getString("token", "");
+  chat_id = preferences.getString("chat_id", "");
+  preferences.end();
+  return (token.length() > 0 && chat_id.length() > 0);
+}
+
+void saveTelegramSettings(const String &token, const String &chat_id) {
+  preferences.begin("telegram", false);
+  preferences.putString("token", token);
+  preferences.putString("chat_id", chat_id);
+  preferences.end();
 }
 
 #endif // UCS2_UTILS_H 

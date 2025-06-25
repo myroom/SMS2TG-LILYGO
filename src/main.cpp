@@ -3,16 +3,20 @@ const char apn[]  = "internet"; // Замените на APN вашего опе
 const char user[] = "";
 const char pass[] = "";
 
-// WiFi настройки
-const char* ssid = "ORION_2G";
-const char* password = "9268845625";
+// Настройки Telegram
+const char TELEGRAM_BOT_TOKEN[] = "7527301010:AAE3p_jGIoisPx3h4v1txYbXJDVmwGR1NF0"; // <-- токен
+const char TELEGRAM_CHAT_ID[] = "-4676572107";      // <-- chat_id 
 
-// Адрес вашего сервера
-const char server[] = "zerosim.ru"; // <-- Укажите здесь адрес вашего сервера
-const int  port = 80;
+// Фиктивные значения для server и port, чтобы не было ошибки компиляции
+const char server[] = "192.168.4.1";
+const int port = 80;
 
 #include <Arduino.h>
 #include <StreamDebugger.h>
+#include <WebServer.h>
+#include <Preferences.h>
+#include <FS.h>
+#include <SPIFFS.h>
 
 // Устанавливаем порт для отладки (к Serial Monitor, по умолчанию скорость 115200)
 #define SerialMon Serial
@@ -37,7 +41,6 @@ const int  port = 80;
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
   StreamDebugger debugger(SerialAT, SerialMon);
@@ -50,108 +53,80 @@ const int  port = 80;
 TinyGsmClient client(modem);
 HttpClient http(client, server, port);
 
-// Инициализация WiFi и HTTPS клиентов
-WiFiClientSecure wifiClientSecure;
-HttpClient httpsClient(wifiClientSecure, "www.zerosim.ru", 443);
+#include "utils.h"
+
+Preferences preferences;
+WebServer serverWeb(80);
 
 String imei = "";
-int pingErrorCount = 0; // Счетчик ошибок ping
-const int maxPingErrors = 10; // Максимальное количество ошибок ping до перезагрузки
-unsigned long lastTestSend = 0; // Время последней отправки тестового сообщения
-const unsigned long testInterval = 60000; // Интервал между тестовыми сообщениями (1 минута)
-unsigned long lastPingSend = 0; // Время последней отправки ping
-const unsigned long pingInterval = 30000; // Интервал между ping (30 секунд)
-
-#include "utils.h"
+WiFiClientSecure wifiClientSecure;
 
 void setup() {
   SerialMon.begin(115200);
   delay(10);
 
-  setup_wifi();
+  // Загружаем настройки WiFi и Telegram
+  String savedSsid, savedPass;
+  String token, chat_id;
+  if (!loadWiFiSettings(savedSsid, savedPass) || !loadTelegramSettings(token, chat_id)) {
+    SerialMon.println("WiFi или Telegram не настроены.");
+    SerialMon.println("Запуск точки доступа и web-интерфейса...");
+    startAPMode();  // Запуск точки доступа и web-интерфейса
+    while (true) {
+      serverWeb.handleClient();
+      delay(10);
+    }
+  }
 
+  // Если настройки есть — подключаемся к WiFi
+  SerialMon.print("Подключение к WiFi: ");
+  SerialMon.println(savedSsid);
+  WiFi.begin(savedSsid.c_str(), savedPass.c_str());
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(500);
+    SerialMon.print(".");
+    attempts++;
+  }
+  if (WiFi.status() == WL_CONNECTED) {
+    SerialMon.println("\nWiFi подключён");
+    SerialMon.print("IP-адрес: ");
+    SerialMon.println(WiFi.localIP());
+    // Insecure, but required for this example
+    wifiClientSecure.setInsecure();
+  } else {
+    SerialMon.println("\nОшибка подключения к WiFi, перезагрузка...");
+    delay(2000);
+    ESP.restart();
+  }
+
+  // Дальнейшая инициализация модема и SMS
   modemPowerOn();
-
   SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
   delay(3000);
-
-  // Получаем IMEI модема до инициализации сети
-  imei = modem.getIMEI();
-  SerialMon.print("Device IMEI: ");
-  SerialMon.println(imei);
-
-  SerialAT.println("AT+CMGF=1"); // Текстовый режим SMS
+  SerialAT.println("AT+CMGF=1");
   delay(500);
-  SerialAT.println("AT+CNMI=2,1,0,0,0"); // Уведомления о новых SMS (CMTI)
+  SerialAT.println("AT+CNMI=2,1,0,0,0");
   delay(500);
-
-  SerialMon.println("Modem is initializing...");
+  SerialMon.println("Инициализация модема...");
   modem.restart();
-
-  SerialMon.print("Waiting for GSM network...");
+  SerialMon.print("Ожидание GSM-сети...");
   if (!modem.waitForNetwork()) {
-    SerialMon.println(" No network");
+    SerialMon.println(" Нет сети");
     while (true);
   }
-  SerialMon.println(" Network found");
-
+  SerialMon.println(" Сеть найдена");
   if (modem.isNetworkConnected()) {
-    SerialMon.println("Successfully connected to network!");
+    SerialMon.println("Успешное подключение к сети!");
   } else {
-    SerialMon.println("Network connection error");
+    SerialMon.println("Ошибка подключения к сети");
     while (true);
   }
-
-  SerialMon.print("Connecting to GPRS...");
-  if (!modem.gprsConnect(apn, user, pass)) {
-    SerialMon.println(" GPRS error");
-    while (true);
-  }
-  SerialMon.println(" GPRS connected");
-
   readAllUnreadSMS();
-
-  SerialMon.println("Waiting for incoming SMS...");
+  SerialMon.println("Ожидание входящих SMS...");
 }
 
 void loop() {
-  // Отправка ping раз в 30 секунд
-  if (millis() - lastPingSend > pingInterval) {
-    lastPingSend = millis();
-    if (sendPing()) {
-      // Успешный ping, сбрасываем счетчик
-      if (pingErrorCount > 0) {
-        SerialMon.println("Ping successful, error count reset.");
-        pingErrorCount = 0;
-      }
-    } else {
-      // Ошибка ping
-      pingErrorCount++;
-      SerialMon.print("Ping error. Count: ");
-      SerialMon.println(pingErrorCount);
-    }
-
-    // Проверяем watchdog
-    if (pingErrorCount >= maxPingErrors) {
-      SerialMon.println("Max ping errors reached. Rebooting device...");
-      delay(1000); // Даем время на отправку сообщения в лог
-      ESP.restart();
-    }
-  }
-
-  // Отправка тестового сообщения раз в минуту
-  if (millis() - lastTestSend > testInterval) {
-    lastTestSend = millis();
-    String testPhone = "+79991234567";
-    String testMessage = "Test message from device";
-    String testDatetime = "24/01/01,12:34:56+00";
-    if (WiFi.status() == WL_CONNECTED) {
-        sendDataOverHttpWifi(testPhone, testMessage, testDatetime);
-    } else {
-        sendDataOverHttp(testPhone, testMessage, testDatetime);
-    }
-  }
-
   if (SerialAT.available()) {
     String line = SerialAT.readStringUntil('\n');
     line.trim();
@@ -199,13 +174,13 @@ void loop() {
         }
         outText = smsText;
       }
-      SerialMon.println("\nNew SMS!");
-      SerialMon.println("Sender: " + sender);
-      SerialMon.println("Date/time: " + formattedDatetime);
-      SerialMon.println("Text: " + outText);
+      SerialMon.println("\nНовое SMS!");
+      SerialMon.println("Отправитель: " + sender);
+      SerialMon.println("Дата/время: " + formattedDatetime);
+      SerialMon.println("Текст: " + outText);
       
-      // Отправляем данные на сервер
-      sendDataOverHttp(sender, outText, formattedDatetime);
+      // Отправляем SMS в Telegram через WiFi
+      sendToTelegram("SMS от: " + sender + "\nВремя: " + formattedDatetime + "\n" + outText);
     }
   }
 }
