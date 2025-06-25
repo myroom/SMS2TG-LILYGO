@@ -564,7 +564,7 @@ const char workHtml[] = R"rawliteral(
             <div id="ipinfo" class="ipinfo">IP-адрес устройства: ...</div>
             <div id="logbox" class="logbox">Логи загружаются...</div>
             <form action="/reset" method="POST">
-                <button type="submit">Сбросить все настройки</button>
+                <button type="submit">Сбросить настройки и перезагрузить</button>
             </form>
         </div>
     </body>
