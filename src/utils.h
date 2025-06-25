@@ -2,7 +2,6 @@
 #define UCS2_UTILS_H
 #include <Arduino.h>
 #include <ArduinoHttpClient.h>
-#include <ArduinoJson.h>
 #include <TinyGsmClient.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -34,12 +33,14 @@ void sendSMS(const String& phone, const String& message);
 void readAllUnreadSMS();
 bool sendPing();
 void setup_wifi();
-String loadHtmlForm();
 void sendToTelegram(const String& text);
 void startAPMode();
 bool loadWiFiSettings(String &ssid, String &pass);
 bool loadTelegramSettings(String &token, String &chat_id);
 void saveTelegramSettings(const String &token, const String &chat_id);
+void startWorkModeWeb();
+extern String getModemStatusJson();
+extern String getLogBufferText();
 
 // HTML-форма теперь шаблон с плейсхолдером %WIFI_OPTIONS%
 const char htmlForm[] = R"rawliteral(
@@ -58,7 +59,14 @@ const char htmlForm[] = R"rawliteral(
             justify-content: center;
             font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
         }
-        .container { background: #fff; padding: 32px 18px 24px 18px; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); min-width: 320px; max-width: 420px; width: 100%; }
+        .container {
+            background: #fff;
+            padding: 32px 18px 24px 18px;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+            width: 100%;
+            text-align: center;
+        }
         h2 { text-align: center; margin-bottom: 16px; font-size: 1.5em; font-weight: 600; }
         .desc { font-size: 0.75em; color: #444; margin-bottom: 18px; text-align: center; }
         .desc-warning { font-size: 0.75em; color: rgb(255, 0, 0); margin-bottom: 18px; text-align: center; }
@@ -70,10 +78,10 @@ const char htmlForm[] = R"rawliteral(
         }
         select, input[type="text"], input[type="password"], textarea {
             width: 100%;
-            padding: 13px 14px;
+            padding: 8px 10px;
             border: 1px solid #ccc;
             border-radius: 7px;
-            font-size: 1.15em;
+            font-size: 1em;
             box-sizing: border-box;
             font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
         }
@@ -85,12 +93,12 @@ const char htmlForm[] = R"rawliteral(
         .password-row button:hover svg { fill: #1976d2; }
         input[type="submit"] {
             width: 100%;
-            padding: 13px 0;
+            padding: 8px 0;
             background: #1976d2;
             color: #fff;
             border: none;
             border-radius: 7px;
-            font-size: 1.18em;
+            font-size: 1em;
             font-weight: 600;
             cursor: pointer;
             transition: background 0.2s;
@@ -98,7 +106,29 @@ const char htmlForm[] = R"rawliteral(
         }
         input[type="submit"]:hover { background: #1256a3; }
         @media (max-width: 600px) {
-            .container { max-width: 98vw; min-width: unset; margin-left: 2vw; margin-right: 2vw; }
+            html, body {
+                height: 100vh;
+                min-height: 100vh;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                display: block;
+            }
+            .container {
+                width: 100vw;
+                min-width: unset;
+                max-width: unset;
+                margin: 0;
+                border-radius: 0;
+                box-sizing: border-box;
+                height: 100vh;
+                padding: 18px 6vw;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+            }
         }
     </style>
     <script>
@@ -234,21 +264,6 @@ void readAllUnreadSMS() {
   }
 }
 
-String loadHtmlForm() {
-  if (!SPIFFS.begin(true)) {
-    SerialMon.println("Ошибка монтирования SPIFFS");
-    return "<b>Ошибка файловой системы</b>";
-  }
-  File file = SPIFFS.open("/wifi_form.html", "r");
-  if (!file) {
-    SerialMon.println("Не найден wifi_form.html");
-    return "<b>Форма не найдена</b>";
-  }
-  String html = file.readString();
-  file.close();
-  return html;
-}
-
 void sendToTelegram(const String& text) {
   if (WiFi.status() != WL_CONNECTED) {
     SerialMon.println("WiFi не подключён, отправка в Telegram невозможна.");
@@ -308,16 +323,24 @@ void startAPMode() {
     String token = serverWeb.arg("token");
     String chat_id = serverWeb.arg("chat_id");
     if (ssid.length() > 0 && pass.length() > 0 && token.length() > 0 && chat_id.length() > 0) {
-      preferences.begin("wifi", false);
-      preferences.putString("ssid", ssid);
-      preferences.putString("password", pass);
-      preferences.end();
-      saveTelegramSettings(token, chat_id);
-      serverWeb.send(200, "text/html", "<b>Сохранено! Перезагрузка...</b>");
-      delay(1500);
-      ESP.restart();
+        preferences.begin("wifi", false);
+        preferences.putString("ssid", ssid);
+        preferences.putString("password", pass);
+        preferences.end();
+        saveTelegramSettings(token, chat_id);
+        serverWeb.send(200, "text/html; charset=utf-8",
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Сохранено</title></head>"
+            "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
+            "<div style='text-align:center;font-size:1.3em;'>✅ Сохранено!<br>Перезагрузка...</div>"
+            "</body></html>");
+        delay(1500);
+        ESP.restart();
     } else {
-      serverWeb.send(200, "text/html", "Ошибка: заполните все поля");
+        serverWeb.send(200, "text/html; charset=utf-8",
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Ошибка</title></head>"
+            "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
+            "<div style='text-align:center;color:red;font-size:1.2em;'>Ошибка: заполните все поля</div>"
+            "</body></html>");
     }
   });
   serverWeb.onNotFound([]() {
@@ -348,6 +371,147 @@ void saveTelegramSettings(const String &token, const String &chat_id) {
   preferences.putString("token", token);
   preferences.putString("chat_id", chat_id);
   preferences.end();
+}
+
+const char workHtml[] = R"rawliteral(
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Рабочий режим SMS2TG-LILYGO</title>
+        <style>
+            body {
+                background: #f7f7f7;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+            }
+            .container {
+                background: #fff;
+                padding: 32px 18px 24px 18px;
+                border-radius: 12px;
+                box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+                width: 100%;
+                max-width: 420px;
+                margin: 40px auto 0 auto;
+                text-align: center;
+            }
+            h2 { text-align: center; margin-bottom: 16px; font-size: 1.5em; font-weight: 600; }
+            .desc { font-size: 0.95em; color: #444; margin-bottom: 18px; text-align: center; }
+            .status { font-size: 1em; margin-bottom: 12px; color: #1976d2; }
+            .logbox { background: #222; color: #eee; font-size: 0.95em; text-align: left; border-radius: 7px; padding: 10px; min-height: 120px; max-height: 220px; overflow-y: auto; margin-bottom: 18px; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace; }
+            form { margin-bottom: 0; }
+            button {
+                width: 100%;
+                padding: 8px 0;
+                background: #d32f2f;
+                color: #fff;
+                border: none;
+                border-radius: 7px;
+                font-size: 1em;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+                margin-bottom: 0;
+            }
+            button:hover { background: #b71c1c; }
+            @media (max-width: 600px) {
+                html, body {
+                    height: 100vh;
+                    min-height: 100vh;
+                    margin: 0;
+                    padding: 0;
+                }
+                body {
+                    display: block;
+                }
+                .container {
+                    width: 100vw;
+                    min-width: unset;
+                    max-width: unset;
+                    margin: 0;
+                    border-radius: 0;
+                    box-sizing: border-box;
+                    height: 100vh;
+                    padding: 18px 6vw;
+                    overflow-y: auto;
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: flex-start;
+                }
+            }
+        </style>
+        <script>
+        function updateStatus() {
+            fetch('/modem_status').then(r => r.json()).then(data => {
+                document.getElementById('modem_status').innerText = 'Статус модема: ' + data.state + (data.ok ? ' (готов)' : '');
+            });
+        }
+        function updateLog() {
+            fetch('/modem_log').then(r => r.text()).then(txt => {
+                let logbox = document.getElementById('logbox');
+                logbox.innerText = txt;
+                logbox.scrollTop = logbox.scrollHeight;
+            });
+        }
+        setInterval(updateStatus, 1500);
+        setInterval(updateLog, 1200);
+        window.onload = function() { updateStatus(); updateLog(); };
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Рабочий режим</h2>
+            <div class="desc">Устройство работает. Для сброса настроек нажмите кнопку ниже.</div>
+            <div id="modem_status" class="status">Статус модема: ...</div>
+            <div id="logbox" class="logbox">Логи загружаются...</div>
+            <form action="/reset" method="POST">
+                <button type="submit">Сбросить все настройки</button>
+            </form>
+        </div>
+    </body>
+    </html>
+    )rawliteral";
+
+void startWorkModeWeb() {
+    serverWeb.on("/", HTTP_GET, []() {
+        serverWeb.send(200, "text/html; charset=utf-8", workHtml);
+    });
+
+    serverWeb.on("/modem_status", HTTP_GET, []() {
+        String json = getModemStatusJson();
+        serverWeb.send(200, "application/json; charset=utf-8", json);
+    });
+    serverWeb.on("/modem_log", HTTP_GET, []() {
+        String log = getLogBufferText();
+        serverWeb.send(200, "text/plain; charset=utf-8", log);
+    });
+
+    serverWeb.on("/reset", HTTP_POST, []() {
+        preferences.begin("wifi", false);
+        preferences.clear();
+        preferences.end();
+        preferences.begin("telegram", false);
+        preferences.clear();
+        preferences.end();
+        serverWeb.send(200, "text/html; charset=utf-8",
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Сброс</title></head>"
+            "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
+            "<div style='text-align:center;font-size:1.3em;'>✅ Настройки сброшены!<br>Перезагрузка...</div>"
+            "</body></html>");
+        delay(1500);
+        ESP.restart();
+    });
+
+    serverWeb.onNotFound([]() {
+        serverWeb.send(404, "text/html; charset=utf-8", "<b>Страница не найдена</b>");
+    });
+
+    serverWeb.begin();
+    SerialMon.println("Web-интерфейс рабочего режима запущен");
 }
 
 #endif // UCS2_UTILS_H 
