@@ -52,7 +52,7 @@ const char htmlForm[] = R"rawliteral(
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WiFi и Telegram Настройки</title>
+    <title>SMS2TG-LILYGO (режим настройки)</title>
     <style>
         body {
             background: #f7f7f7;
@@ -156,7 +156,7 @@ const char htmlForm[] = R"rawliteral(
 </head>
 <body>
     <div class="container">
-        <h2>SMS2TG-LILYGO</h2>
+        <h2>SMS2TG-LILYGO (режим настройки)</h2>
         <div class="desc">
            Привет! Чтобы устройство могло передавать полученные SMS в Telegram, необходимо ввести данные WiFi-сети (поддерживаются только сети 2.4 ГГц) и Telegram.
         </div>
@@ -474,7 +474,7 @@ const char workHtml[] = R"rawliteral(
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Рабочий режим SMS2TG-LILYGO</title>
+        <title>SMS2TG-LILYGO (рабочий режим)</title>
         <style>
             body {
                 background: #f7f7f7;
@@ -559,7 +559,7 @@ const char workHtml[] = R"rawliteral(
     </head>
     <body>
         <div class="container">
-            <h2>Рабочий режим</h2>
+            <h2>SMS2TG-LILYGO (рабочий режим)</h2>
             <div class="desc">Устройство работает. Для сброса настроек нажмите кнопку ниже.</div>
             <div id="ipinfo" class="ipinfo">IP-адрес устройства: ...</div>
             <div id="logbox" class="logbox">Логи загружаются...</div>
