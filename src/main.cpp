@@ -3,10 +3,6 @@ const char apn[]  = "internet"; // Замените на APN вашего опе
 const char user[] = "";
 const char pass[] = "";
 
-// Настройки Telegram
-const char TELEGRAM_BOT_TOKEN[] = "7527301010:AAE3p_jGIoisPx3h4v1txYbXJDVmwGR1NF0"; // <-- токен
-const char TELEGRAM_CHAT_ID[] = "-4676572107";      // <-- chat_id 
-
 // Фиктивные значения для server и port, чтобы не было ошибки компиляции
 const char server[] = "192.168.4.1";
 const int port = 80;
@@ -76,6 +72,8 @@ bool modemInitOk = false;
 // Счётчик неудачных попыток инициализации модема
 int modemFailCount = 0;
 const int MODEM_MAX_FAILS = 5;
+
+bool isSetupMode = false;
 
 // --- Получение текущей даты и времени (простая версия через millis, если нет RTC) ---
 String getTimeStamp() {
@@ -256,6 +254,8 @@ void setup() {
     logPrintln("WiFi или Telegram не настроены.");
     logPrintln("Запуск точки доступа и web-интерфейса...");
     startAPMode();  // Запуск точки доступа и web-интерфейса
+    isSetupMode = true;
+    return;
   }
 
   // Если настройки есть — подключаемся к WiFi
@@ -306,6 +306,11 @@ void setup() {
 
 void loop() {
   serverWeb.handleClient(); // web-интерфейс всегда доступен
+
+  if (isSetupMode) {
+    // В режиме настроек не работаем с модемом
+    return;
+  }
 
   if (!modemInitOk) {
     asyncModemInit();

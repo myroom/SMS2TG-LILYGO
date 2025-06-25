@@ -23,6 +23,8 @@ extern String imei;
 extern Preferences preferences;
 extern WebServer serverWeb;
 
+#define AP_SSID "SMS2TG-SETUP"
+
 // Прототипы функций
 String decodeUCS2(const String& ucs2);
 String formatSmsDatetime(const String& raw);
@@ -65,6 +67,8 @@ const char htmlForm[] = R"rawliteral(
             border-radius: 12px;
             box-shadow: 0 2px 16px rgba(0,0,0,0.07);
             width: 100%;
+            max-width: 420px;
+            margin: 40px auto 0 auto;
             text-align: center;
         }
         h2 { text-align: center; margin-bottom: 16px; font-size: 1.5em; font-weight: 600; }
@@ -153,7 +157,7 @@ const char htmlForm[] = R"rawliteral(
     <div class="container">
         <h2>SMS2TG-LILYGO</h2>
         <div class="desc">
-           Привет! Чтобы устройство могло передавать SMS в Telegram, необходимо ввести данные WiFi-сети и Telegram.
+           Привет! Чтобы устройство могло передавать полученные SMS в Telegram, необходимо ввести данные WiFi-сети и Telegram.
         </div>
         <form action="/save" method="POST">
             <label for="ssid">WiFi сеть:</label>
@@ -171,7 +175,7 @@ const char htmlForm[] = R"rawliteral(
             <label for="chat_id">Chat ID:</label>
             <input name="chat_id" id="chat_id" type="text" required pattern="-?[0-9]+" />
             <div class="desc-warning">
-              После сохранения устройство перезагрузится и попробует подключиться к WiFi. Если подключение не удастся, точка доступа появится снова.
+              После сохранения устройство перезагрузится и попробует подключиться к WiFi. Если подключение не удастся, точка доступа " + AP_SSID + " появится снова.
             </div>
             <input type="submit" value="Сохранить" />
             <div class="link">
@@ -296,7 +300,7 @@ void sendToTelegram(const String& text) {
 
 void startAPMode() {
   WiFi.mode(WIFI_AP);
-  WiFi.softAP("SMS2TG-SETUP");
+  WiFi.softAP(AP_SSID);
   IPAddress IP = WiFi.softAPIP();
   SerialMon.print("IP-адрес точки доступа: ");
   SerialMon.println(IP);
@@ -312,6 +316,7 @@ void startAPMode() {
 
   String page = String(htmlForm);
   page.replace("%WIFI_OPTIONS%", wifiOptions);
+  page.replace("SMS2TG-SETUP", AP_SSID);
 
   serverWeb.on("/", HTTP_GET, [page]() mutable {
     serverWeb.send(200, "text/html", page);
@@ -498,12 +503,27 @@ void startWorkModeWeb() {
         preferences.clear();
         preferences.end();
         serverWeb.send(200, "text/html; charset=utf-8",
-            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Сброс</title></head>"
-            "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
-            "<div style='text-align:center;font-size:1.3em;'>✅ Настройки сброшены!<br>Перезагрузка...</div>"
-            "</body></html>");
-        delay(1500);
-        ESP.restart();
+            "<!DOCTYPE html><html lang='ru'><head><meta charset='UTF-8'><title>Сброс настроек</title>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0' />"
+            "<style>"
+            "body {background: #f7f7f7; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;}"
+            ".container {background: #fff; padding: 32px 18px 24px 18px; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); width: 100%; max-width: 420px; text-align: center;}"
+            "h2 {margin-bottom: 16px; font-size: 1.5em; font-weight: 600;}"
+            ".desc {font-size: 1.05em; color: #444; margin-bottom: 18px;}"
+            ".link {font-size: 1.1em; margin: 18px 0 0 0;}"
+            ".wifi {font-size: 1.1em; color: #1976d2; margin-bottom: 10px;}"
+            "a.button {display: inline-block; margin-top: 12px; padding: 10px 22px; background: #1976d2; color: #fff; border-radius: 7px; text-decoration: none; font-weight: 600; font-size: 1.1em; transition: background 0.2s;}"
+            "a.button:hover {background: #1256a3;}"
+            "@media (max-width: 600px) {.container{width:100vw;max-width:unset;border-radius:0;box-sizing:border-box;height:100vh;padding:18px 6vw;}}"
+            "</style></head><body>"
+            "<div class='container'>"
+            "<h2>✅ Настройки сброшены!</h2>"
+            "<div class='desc'>Устройство перезагружается...<br><br>"
+            "<span class='wifi'>Подключитесь к WiFi сети <b>" AP_SSID "</b></span><br>"
+            "и перейдите по адресу:</div>"
+            "<a class='button' href='http://192.168.4.1'>http://192.168.4.1</a>"
+            "<div class='link'>Если страница не открывается, попробуйте вручную ввести адрес в браузере.</div>"
+            "</div></body></html>");
     });
 
     serverWeb.onNotFound([]() {
