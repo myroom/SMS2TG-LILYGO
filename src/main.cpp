@@ -192,25 +192,23 @@ void asyncModemInit() {
       break;
     case INIT_RESTART:
       if (millis() - modemTimer > 1000) {
-        logPrint("Ожидание GSM-сети (до 2 минут)...");
+        logPrint("Ожидание GSM-сети (30 сек)...");
         modemTimer = millis();
         modemState = INIT_WAIT_NET;
       }
       break;
-    case INIT_WAIT_NET: {
-      unsigned long waitStart = millis();
-      bool netOk = modem.waitForNetwork(); // Ждём столько, сколько нужно (или внутренний таймаут TinyGSM)
-      if (netOk) {
+    case INIT_WAIT_NET:
+      if (modem.waitForNetwork(1)) { // 1 секунда на попытку
         logPrintln("Сеть найдена");
         modemState = INIT_CHECK_NET;
-      } else if (millis() - modemTimer > 120000) { // 120 сек таймаут
+      } else if (millis() - modemTimer > 30000) { // 30 сек таймаут
         logPrintln("Не удалось подключиться к сети GSM");
         modemState = INIT_FAIL;
       } else {
-        delay(500);
+        // Не логируем точки ожидания
+        delay(200);
       }
       break;
-    }
     case INIT_CHECK_NET:
       if (modem.isNetworkConnected()) {
         logPrintln("Успешное подключение к сети GSM");
