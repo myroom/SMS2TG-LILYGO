@@ -1,61 +1,61 @@
-# LilyGO T-Call SIM800 — Приём SMS и отправка в Telegram
+# LilyGO T-Call SIM800 — SMS Reception and Telegram Forwarding
 
-## Описание
+## Description
 
-Этот проект предназначен для платы LilyGO T-Call SIM800 (ESP32 + SIM800L) и позволяет автоматически принимать входящие SMS, отображать их в web-интерфейсе и пересылать содержимое сообщений в Telegram-чат. Настройка WiFi и Telegram осуществляется через удобный web-интерфейс, доступный при первом запуске или после сброса настроек.
+This project is designed for the LilyGO T-Call SIM800 board (ESP32 + SIM800L) and allows automatic reception of incoming SMS messages, displaying them in a web interface, and forwarding message content to a Telegram chat. WiFi and Telegram configuration is done through a convenient web interface available on first startup or after settings reset.
 
-## Возможности
+## Features
 
--   Приём входящих SMS с SIM-карты
--   Автоматическая отправка текста SMS в Telegram-чат
--   Современный web-интерфейс для настройки WiFi и Telegram Token/Chat ID
--   Просмотр логов работы устройства через web
--   Сброс настроек через web-интерфейс одной кнопкой
--   Поддержка кириллицы и других языков (декодирование UCS2)
--   Вся работа устройства отображается в Serial Monitor для отладки
+-   Reception of incoming SMS from SIM card
+-   Automatic sending of SMS text to Telegram chat
+-   Modern web interface for configuring WiFi and Telegram Token/Chat ID
+-   View device operation logs through web interface
+-   Reset settings through web interface with one button
+-   Support for Cyrillic and other languages (UCS2 decoding)
+-   All device operations are displayed in Serial Monitor for debugging
 
-## Требования
+## Requirements
 
--   Плата LilyGO T-Call SIM800 (ESP32 + SIM800L)
--   SIM-карта с активным тарифом
--   Arduino IDE или PlatformIO
--   Библиотека Arduino (ESP32 core)
+-   LilyGO T-Call SIM800 board (ESP32 + SIM800L)
+-   SIM card with active plan
+-   Arduino IDE or PlatformIO
+-   Arduino library (ESP32 core)
 
-## Подключение
+## Connections
 
--   SIM800_TX (модуль) → GPIO 27 (ESP32)
--   SIM800_RX (модуль) → GPIO 26 (ESP32)
--   Питание SIM800: рекомендуется использовать отдельный источник питания или аккумулятор (модуль чувствителен к просадкам напряжения)
+-   SIM800_TX (module) → GPIO 27 (ESP32)
+-   SIM800_RX (module) → GPIO 26 (ESP32)
+-   SIM800 Power: it's recommended to use a separate power source or battery (the module is sensitive to voltage drops)
 
-## Быстрый старт и настройка
+## Quick Start and Setup
 
-1. Откройте проект в Arduino IDE или PlatformIO.
-2. Подключите плату к компьютеру через USB.
-3. Выберите плату **ESP32 Dev Module** и соответствующий порт.
-4. Загрузите скетч на плату.
-5. Откройте Serial Monitor (скорость 115200 бод).
-6. Вставьте SIM-карту в модуль и подайте питание.
-7. При первом запуске устройство создаст WiFi-точку доступа `SMS2TG-SETUP`.
-8. Подключитесь к этой WiFi-сети с телефона или компьютера и откройте браузер по адресу [http://192.168.4.1](http://192.168.4.1).
-9. В web-интерфейсе введите параметры вашей WiFi-сети и Telegram (Token и Chat ID), затем сохраните настройки.
-10. После перезагрузки устройство подключится к WiFi и начнёт работу в основном режиме.
+1. Open the project in Arduino IDE or PlatformIO.
+2. Connect the board to your computer via USB.
+3. Select **ESP32 Dev Module** board and the corresponding port.
+4. Upload the sketch to the board.
+5. Open Serial Monitor (speed 115200 baud).
+6. Insert the SIM card into the module and apply power.
+7. On first startup, the device will create a WiFi access point `SMS2TG-SETUP`.
+8. Connect to this WiFi network from your phone or computer and open a browser at [http://192.168.4.1](http://192.168.4.1).
+9. In the web interface, enter your WiFi network parameters and Telegram settings (Token and Chat ID), then save the settings.
+10. After reboot, the device will connect to WiFi and start working in main mode.
 
-## Работа устройства
+## Device Operation
 
--   Все входящие SMS автоматически пересылаются в указанный Telegram-чат.
--   В web-интерфейсе можно просматривать статус модема и логи работы.
--   Для сброса настроек используйте кнопку "Сбросить все настройки" в web-интерфейсе.
+-   All incoming SMS are automatically forwarded to the specified Telegram chat.
+-   In the web interface, you can view modem status and operation logs.
+-   To reset settings, use the "Reset all settings" button in the web interface.
 
-## Пример вывода в Serial Monitor
+## Example Serial Monitor Output
 
 ```
-Новое SMS!
-Отправитель: +79161234567
-Дата/время: 01.05.2023 12:34:56 +12
-Текст: Тестовое сообщение
+New SMS!
+Sender: +79161234567
+Date/time: 01.05.2023 12:34:56 +12
+Text: Test message
 ```
 
-## Источники
+## Sources
 
--   [Официальный репозиторий LilyGO T-Call SIM800](https://github.com/Xinyuan-LilyGO/LilyGo-T-Call-SIM800)
--   [Проект SMS2TG-LILYGO на GitHub](https://github.com/myroom/SMS2TG-LILYGO)
+-   [Official LilyGO T-Call SIM800 repository](https://github.com/Xinyuan-LilyGO/LilyGo-T-Call-SIM800)
+-   [SMS2TG-LILYGO project on GitHub](https://github.com/myroom/SMS2TG-LILYGO)

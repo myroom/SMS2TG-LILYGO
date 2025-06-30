@@ -10,7 +10,7 @@
 #include <WebServer.h>
 #include <Preferences.h>
 
-// Объявляем глобальные переменные, которые определены в main.cpp
+// Declare global variables defined in main.cpp
 extern TinyGsm modem;
 extern HttpClient http;
 extern HttpClient httpsClient;
@@ -23,13 +23,13 @@ extern String imei;
 extern Preferences preferences;
 extern WebServer serverWeb;
 
-// Объявляем функцию логирования из main.cpp
+// Declare logging function from main.cpp
 void logPrintln(const String& msg);
 
 #define AP_SSID "SMS2TG-SETUP"
 #define MDNS_HOSTNAME "SMS2TG-LILYGO"
 
-// Прототипы функций
+// Function prototypes
 String decodeUCS2(const String& ucs2);
 String formatSmsDatetime(const String& raw);
 void modemPowerOn();
@@ -48,14 +48,14 @@ void startWorkModeWeb();
 extern String getModemStatusJson();
 extern String getLogBufferText();
 
-// HTML-форма теперь шаблон с плейсхолдером %WIFI_OPTIONS%
+// HTML form template with %WIFI_OPTIONS% placeholder
 const char htmlForm[] = R"rawliteral(
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SMS2TG-LILYGO (режим настройки)</title>
+    <title>SMS2TG-LILYGO (Setup Mode)</title>
     <style>
         body {
             background: #f7f7f7;
@@ -159,31 +159,31 @@ const char htmlForm[] = R"rawliteral(
 </head>
 <body>
     <div class="container">
-        <h2>SMS2TG-LILYGO (режим настройки)</h2>
+        <h2>SMS2TG-LILYGO (Setup Mode)</h2>
         <div class="desc">
-           Привет! Чтобы устройство могло передавать полученные SMS в Telegram, необходимо ввести данные WiFi-сети (поддерживаются только сети 2.4 ГГц) и Telegram.
+           Hello! To enable the device to forward received SMS to Telegram, please enter your WiFi network details (only 2.4 GHz networks are supported) and Telegram settings.
         </div>
         <form action="/save" method="POST">
-            <label for="ssid">WiFi сеть:</label>
+            <label for="ssid">WiFi Network:</label>
             <select name="ssid_select" id="ssid_select" onchange="onSSIDChange(this)">
                 %WIFI_OPTIONS%
             </select>
-            <input name="ssid" id="custom_ssid" type="text" style="display:none" placeholder="Введите SSID вручную" minlength="2" maxlength="32" pattern="[A-Za-z0-9_\-]+" />
-            <label for="password">Пароль WiFi:</label>
+            <input name="ssid" id="custom_ssid" type="text" style="display:none" placeholder="Enter SSID manually" minlength="2" maxlength="32" pattern="[A-Za-z0-9_\-]+" />
+            <label for="password">WiFi Password:</label>
             <div class="password-row">
                 <input name="password" id="password" type="password" required minlength="8" maxlength="64" />
                 <button type="button" onclick="togglePassword()" tabindex="-1"><span id="eyeIcon"><svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></span></button>
             </div>
-            <label for="token">Telegram токен:</label>
+            <label for="token">Telegram Token:</label>
             <input name="token" id="token" type="text" required minlength="30" maxlength="60" pattern="[0-9]+:[A-Za-z0-9_-]+" />
-            <label for="chat_id">ID чата:</label>
+            <label for="chat_id">Chat ID:</label>
             <input name="chat_id" id="chat_id" type="text" required pattern="-?[0-9]+" />
             <div class="desc-warning">
-              После сохранения устройство перезагрузится и попробует подключиться к WiFi. Если подключение не удастся, точка доступа " + AP_SSID + " появится снова.
+              After saving, the device will reboot and try to connect to WiFi. If connection fails, the access point " + AP_SSID + " will appear again.
             </div>
-            <input type="submit" value="Сохранить" />
+            <input type="submit" value="Save" />
             <div class="link">
-              Ссылка на проект: <a href="https://github.com/myroom/SMS2TG-LILYGO" target="_blank">https://github.com/myroom/SMS2TG-LILYGO</a>
+              Project link: <a href="https://github.com/myroom/SMS2TG-LILYGO" target="_blank">https://github.com/myroom/SMS2TG-LILYGO</a>
             </div>
             
         </form>
@@ -192,14 +192,14 @@ const char htmlForm[] = R"rawliteral(
 </html>
 )rawliteral";
 
-// Страница успешного сохранения настроек
+// Settings saved successfully page
 const char savedHtml[] = R"rawliteral(
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Сохранено</title>
+    <title>Saved</title>
     <style>
         body {
             background: #f7f7f7;
@@ -265,22 +265,22 @@ const char savedHtml[] = R"rawliteral(
 </head>
 <body>
     <div class="container">
-        <h2>✅ Настройки сохранены!</h2>
-        <div class="desc">Идет перезагрузка устройства...</div>
+        <h2>✅ Settings Saved!</h2>
+        <div class="desc">Device is rebooting...</div>
         <div class="next-steps">
-          <b>Что будет дальше?</b><br>
-          После перезагрузки устройство попытается подключиться к вашей WiFi-сети.<br><br>
-          <b>Как найти устройство:</b><br>
-          • Попробуйте открыть <a href="http://SMS2TG-LILYGO.local" target="_blank">http://SMS2TG-LILYGO.local</a> в браузере.<br>
-          • Если страница не открывается, посмотрите IP-адрес устройства в настройках вашего роутера и перейдите по нему.<br><br>
-          <b>Если устройство не подключилось к WiFi</b>, точка доступа <span style="color:#1976d2;font-weight:600;">SMS2TG-SETUP</span> появится снова — подключитесь к ней и перейдите по адресу <a href="http://192.168.4.1" target="_blank">http://192.168.4.1</a>.
+          <b>What happens next?</b><br>
+          After reboot, the device will try to connect to your WiFi network.<br><br>
+          <b>How to find the device:</b><br>
+          • Try opening <a href="http://SMS2TG-LILYGO.local" target="_blank">http://SMS2TG-LILYGO.local</a> in your browser.<br>
+          • If the page doesn't open, check the device's IP address in your router settings and navigate to it.<br><br>
+          <b>If the device failed to connect to WiFi</b>, the access point <span style="color:#1976d2;font-weight:600;">SMS2TG-SETUP</span> will appear again — connect to it and go to <a href="http://192.168.4.1" target="_blank">http://192.168.4.1</a>.
         </div>
     </div>
 </body>
 </html>
 )rawliteral";
 
-// Корректная конвертация UCS2 (HEX) в String (UTF-8)
+// Correct UCS2 (HEX) to String (UTF-8) conversion
 String decodeUCS2(const String& ucs2) {
   String result;
   for (int i = 0; i < ucs2.length(); i += 4) {
@@ -302,9 +302,9 @@ String decodeUCS2(const String& ucs2) {
   return result;
 }
 
-// Форматирование даты/времени из SMS в читаемый вид
+// Format SMS date/time to readable format
 String formatSmsDatetime(const String& raw) {
-  // Пример входа: 25/06/18,02:59:35+12
+  // Example input: 25/06/18,02:59:35+12
   if (raw.length() < 17) return raw;
   String day = raw.substring(0, 2);
   String month = raw.substring(3, 5);
@@ -317,7 +317,7 @@ String formatSmsDatetime(const String& raw) {
   return formatted;
 }
 
-// Включение модема
+// Power on modem
 void modemPowerOn() {
   pinMode(MODEM_PWKEY, OUTPUT);
   pinMode(MODEM_POWER_ON, OUTPUT);
@@ -334,7 +334,7 @@ void modemPowerOn() {
   delay(1000);
 }
 
-// Отправка SMS
+// Send SMS
 void sendSMS(const String& phone, const String& message) {
   SerialMon.print("Sending SMS to number " + phone + "...");
   if (modem.sendSMS(phone, message)) {
@@ -344,16 +344,16 @@ void sendSMS(const String& phone, const String& message) {
   }
 }
 
-// Чтение всех непрочитанных SMS
+// Read all unread SMS
 void readAllUnreadSMS() {
   SerialAT.println("AT+CMGF=1");
   delay(200);
-  // Опросим первые 20 ячеек SIM-карты (можно увеличить при необходимости)
+  // Query first 20 SIM card slots (can be increased if needed)
   for (int i = 1; i <= 20; ++i) {
     SerialAT.print("AT+CMGR=");
     SerialAT.println(i);
     delay(300);
-    // После чтения удаляем SMS
+    // Delete SMS after reading
     SerialAT.print("AT+CMGD=");
     SerialAT.println(i);
     delay(100);
@@ -362,12 +362,12 @@ void readAllUnreadSMS() {
 
 void sendToTelegram(const String& text) {
   if (WiFi.status() != WL_CONNECTED) {
-    SerialMon.println("WiFi не подключён, отправка в Telegram невозможна.");
+    SerialMon.println("WiFi not connected, Telegram sending impossible.");
     return;
   }
   String token, chat_id;
   if (!loadTelegramSettings(token, chat_id)) {
-    SerialMon.println("Не заданы Telegram token или chat_id!");
+    SerialMon.println("Telegram token or chat_id not set!");
     return;
   }
   const char telegramServer[] = "api.telegram.org";
@@ -383,16 +383,16 @@ void sendToTelegram(const String& text) {
   telegramHttp.post(url, contentType, postData);
   int statusCode = telegramHttp.responseStatusCode();
   String response = telegramHttp.responseBody();
-  SerialMon.print("Статус HTTP Telegram: ");
+  SerialMon.print("Telegram HTTP status: ");
   SerialMon.println(statusCode);
-  SerialMon.print("Ответ Telegram: ");
+  SerialMon.print("Telegram response: ");
   SerialMon.println(response);
   
-  // Добавляем логирование результата отправки
+  // Add sending result logging
   if (statusCode == 200) {
-    logPrintln("Сообщение успешно отправлено в Telegram");
+    logPrintln("Message successfully sent to Telegram");
   } else {
-    logPrintln("Ошибка отправки в Telegram. HTTP код: " + String(statusCode));
+    logPrintln("Telegram sending error. HTTP code: " + String(statusCode));
   }
   
   telegramHttp.stop();
@@ -403,10 +403,10 @@ void startAPMode() {
   WiFi.softAP(AP_SSID);
   WiFi.setHostname(MDNS_HOSTNAME);
   IPAddress IP = WiFi.softAPIP();
-  SerialMon.print("IP-адрес точки доступа: ");
+  SerialMon.print("Access point IP address: ");
   SerialMon.println(IP);
 
-  // Сканируем WiFi-сети
+  // Scan WiFi networks
   int n = WiFi.scanNetworks();
   String wifiOptions = "";
   String seenSSIDs = ",";
@@ -417,7 +417,7 @@ void startAPMode() {
       seenSSIDs += ssid + ",";
     }
   }
-  wifiOptions += "<option value=\"__custom__\">Другая сеть...</option>";
+  wifiOptions += "<option value=\"__custom__\">Other network...</option>";
 
   String page = String(htmlForm);
   page.replace("%WIFI_OPTIONS%", wifiOptions);
@@ -443,17 +443,17 @@ void startAPMode() {
         ESP.restart();
     } else {
         serverWeb.send(200, "text/html; charset=utf-8",
-            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Ошибка</title></head>"
+            "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Error</title></head>"
             "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
-            "<div style='text-align:center;color:red;font-size:1.2em;'>Ошибка: заполните все поля</div>"
+            "<div style='text-align:center;color:red;font-size:1.2em;'>Error: please fill all fields</div>"
             "</body></html>");
     }
   });
   serverWeb.onNotFound([]() {
-    serverWeb.send(404, "text/html", "<b>Страница не найдена</b>");
+    serverWeb.send(404, "text/html", "<b>Page not found</b>");
   });
   serverWeb.begin();
-  SerialMon.println("Web-интерфейс настроек запущен");
+  SerialMon.println("Settings web interface started");
 }
 
 bool loadWiFiSettings(String &ssid, String &pass) {
@@ -481,11 +481,11 @@ void saveTelegramSettings(const String &token, const String &chat_id) {
 
 const char workHtml[] = R"rawliteral(
     <!DOCTYPE html>
-    <html lang="ru">
+    <html lang="en">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>SMS2TG-LILYGO (рабочий режим)</title>
+        <title>SMS2TG-LILYGO (Working Mode)</title>
         <style>
             body {
                 background: #f7f7f7;
@@ -560,7 +560,7 @@ const char workHtml[] = R"rawliteral(
         }
         function updateIP() {
             fetch('/ip').then(r => r.text()).then(txt => {
-                document.getElementById('ipinfo').innerText = 'IP-адрес устройства: ' + txt;
+                document.getElementById('ipinfo').innerText = 'Device IP address: ' + txt;
             });
         }
         setInterval(updateLog, 1200);
@@ -570,12 +570,12 @@ const char workHtml[] = R"rawliteral(
     </head>
     <body>
         <div class="container">
-            <h2>SMS2TG-LILYGO (рабочий режим)</h2>
-            <div class="desc">Устройство работает. Для сброса настроек нажмите кнопку ниже.</div>
-            <div id="ipinfo" class="ipinfo">IP-адрес устройства: ...</div>
-            <div id="logbox" class="logbox">Логи загружаются...</div>
+            <h2>SMS2TG-LILYGO (Working Mode)</h2>
+            <div class="desc">Device is working. To reset settings, press the button below.</div>
+            <div id="ipinfo" class="ipinfo">Device IP address: ...</div>
+            <div id="logbox" class="logbox">Loading logs...</div>
             <form action="/reset" method="POST">
-                <button type="submit">Сбросить настройки и перезагрузить</button>
+                <button type="submit">Reset Settings and Reboot</button>
             </form>
         </div>
     </body>
@@ -604,7 +604,7 @@ void startWorkModeWeb() {
         preferences.clear();
         preferences.end();
         serverWeb.send(200, "text/html; charset=utf-8",
-            "<!DOCTYPE html><html lang='ru'><head><meta charset='UTF-8'><title>Сброс настроек</title>"
+            "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Settings Reset</title>"
             "<meta name='viewport' content='width=device-width, initial-scale=1.0' />"
             "<style>"
             "body {background: #f7f7f7; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;}"
@@ -618,12 +618,12 @@ void startWorkModeWeb() {
             "@media (max-width: 600px) {.container{width:100vw;max-width:unset;border-radius:0;box-sizing:border-box;height:100vh;padding:18px 6vw;}}"
             "</style></head><body>"
             "<div class='container'>"
-            "<h2>✅ Настройки сброшены!</h2>"
-            "<div class='desc'>Устройство перезагружается...<br><br>"
-            "<span class='wifi'>Подключитесь к WiFi сети <b>" AP_SSID "</b></span><br>"
-            "и перейдите по адресу:</div>"
+            "<h2>✅ Settings Reset!</h2>"
+            "<div class='desc'>Device is rebooting...<br><br>"
+            "<span class='wifi'>Connect to WiFi network <b>" AP_SSID "</b></span><br>"
+            "and go to:</div>"
             "<a class='button' href='http://192.168.4.1'>http://192.168.4.1</a>"
-            "<div class='link'>Если страница не открывается, попробуйте вручную ввести адрес в браузере.</div>"
+            "<div class='link'>If the page doesn't open, try manually entering the address in your browser.</div>"
             "</div></body></html>");
         delay(1500);
         ESP.restart();
@@ -635,11 +635,11 @@ void startWorkModeWeb() {
     });
 
     serverWeb.onNotFound([]() {
-        serverWeb.send(404, "text/html; charset=utf-8", "<b>Страница не найдена</b>");
+        serverWeb.send(404, "text/html; charset=utf-8", "<b>Page not found</b>");
     });
 
     serverWeb.begin();
-    SerialMon.println("Web-интерфейс рабочего режима запущен");
+    SerialMon.println("Working mode web interface started");
 }
 
 #endif // UCS2_UTILS_H 
