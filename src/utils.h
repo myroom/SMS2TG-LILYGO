@@ -113,6 +113,57 @@ const char htmlForm[] = R"rawliteral(
             margin-bottom: 22px;
         }
         input[type="submit"]:hover { background: #1256a3; }
+        .help-button {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 4px 8px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .help-button:hover { background: #bbdefb; }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            cursor: pointer;
+        }
+        .close:hover { color: #000; }
+        .modal h3 { margin-top: 0; color: #1976d2; }
+        .modal ol { padding-left: 20px; }
+        .modal li { margin-bottom: 8px; line-height: 1.4; }
+        .modal code { background: #f5f5f5; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+        .modal .note { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; padding: 10px; margin: 10px 0; color: #856404; }
         @media (max-width: 600px) {
             html, body {
                 height: 100vh;
@@ -155,6 +206,18 @@ const char htmlForm[] = R"rawliteral(
             eye.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/><line x1="4" y1="4" x2="20" y2="20" stroke="#888" stroke-width="2"/></svg>';
         }
     }
+    function showHelp() {
+        document.getElementById('helpModal').style.display = 'block';
+    }
+    function closeHelp() {
+        document.getElementById('helpModal').style.display = 'none';
+    }
+    window.onclick = function(event) {
+        var modal = document.getElementById('helpModal');
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    }
     </script>
 </head>
 <body>
@@ -174,7 +237,7 @@ const char htmlForm[] = R"rawliteral(
                 <input name="password" id="password" type="password" required minlength="8" maxlength="64" />
                 <button type="button" onclick="togglePassword()" tabindex="-1"><span id="eyeIcon"><svg viewBox="0 0 24 24"><path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3z"/></svg></span></button>
             </div>
-            <label for="token">Telegram Token:</label>
+            <label for="token">Telegram Token: <span class="help-button" onclick="showHelp()">❓</span></label>
             <input name="token" id="token" type="text" required minlength="30" maxlength="60" pattern="[0-9]+:[A-Za-z0-9_-]+" />
             <label for="chat_id">Chat ID:</label>
             <input name="chat_id" id="chat_id" type="text" required pattern="-?[0-9]+" />
@@ -187,6 +250,32 @@ const char htmlForm[] = R"rawliteral(
             </div>
             
         </form>
+    </div>
+
+    <!-- Modal window with instructions -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeHelp()">&times;</span>
+            <h3>📖 Telegram Setup</h3>
+            
+            <h4>🤖 Getting Token:</h4>
+            <ol>
+                <li>Find <code>@BotFather</code> in Telegram</li>
+                <li>Send <code>/newbot</code> and follow instructions</li>
+                <li>Copy the received Token</li>
+            </ol>
+
+            <h4>🆔 Getting Chat ID:</h4>
+            <ol>
+                <li>Find <code>@GetMyID</code> bot in Telegram</li>
+                <li>Send <code>/start</code></li>
+                <li>Bot will immediately send your Chat ID</li>
+            </ol>
+
+            <div class="note">
+                <strong>💡 For channels:</strong> Add <code>@GetMyID</code> to the channel and it will show the channel ID (negative number).
+            </div>
+        </div>
     </div>
 </body>
 </html>
