@@ -46,11 +46,9 @@ This project includes 3D printable case files in the `3D files/` folder. You can
 -   Arduino IDE or PlatformIO
 -   Arduino library (ESP32 core)
 
-## Connections
+## Power Connection
 
--   SIM800_TX (module) → GPIO 27 (ESP32)
--   SIM800_RX (module) → GPIO 26 (ESP32)
--   SIM800 Power: it's recommended to use a separate power source or battery (the module is sensitive to voltage drops)
+To power the device, simply connect the USB-C cable to the board. The LilyGO T-Call v1.4 has all necessary connections pre-wired and ready to use - no additional wiring is required.
 
 ## Quick Start and Setup
 
