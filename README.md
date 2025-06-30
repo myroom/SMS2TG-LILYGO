@@ -76,6 +76,16 @@ Date/time: 01.05.2023 12:34:56 +12
 Text: Test message
 ```
 
+## Project Development
+
+This project is actively being developed and improved. If you have suggestions for new features, improvements, or encounter any issues, please feel free to:
+
+-   Open an issue on GitHub
+-   Submit feature requests
+-   Share your ideas for improvements
+
+Your feedback helps make this project better for everyone!
+
 ## Sources
 
 -   [Official LilyGO T-Call SIM800 repository](https://github.com/Xinyuan-LilyGO/LilyGo-T-Call-SIM800)
