@@ -10,6 +10,21 @@ Hi! I'm a developer and tech enthusiast who loves building and sharing tools wit
 
 This project is designed for the LilyGO T-Call SIM800 board (ESP32 + SIM800L) and allows for automatic reception of incoming SMS messages, displaying them through a web interface, and forwarding message content to a Telegram chat. WiFi and Telegram configuration is done through a convenient web interface available on first startup or after settings reset.
 
+## About the Device
+
+[LilyGO T-Call v1.4](https://lilygo.cc/products/t-call-v1-4) is a development board based on ESP32 microcontroller with integrated SIM800H/SIM800L GSM/GPRS module. The board features:
+
+-   **ESP32**: 240MHz dual-core processor with 4MB/8MB Flash and 8MB PSRAM
+-   **GSM/GPRS**: SIM800H module for 2G cellular connectivity
+-   **Connectivity**: Wi-Fi 802.11 b/g/n, Bluetooth v4.2 BR/EDR and BLE
+-   **Power**: USB Type-C charging and JST connector for Li-Po battery (IP5306 charging IC)
+-   **Serial**: CH9102 USB-to-serial converter
+-   **Interfaces**: I2C, SPI, UART, SDIO, I2S, CAN
+
+### Antenna Recommendation
+
+For optimal signal reception and reliable SMS operation, it is **highly recommended** to install an external GSM/GPRS antenna. The built-in antenna may not provide sufficient signal strength in all locations. You can purchase a compatible external antenna from [LilyGO GSM/GPRS Antenna](https://lilygo.cc/products/gsm-gprs-antenna) which is specifically designed for T-Call v1.4 and will significantly improve signal quality and connection stability.
+
 ## Features
 
 -   Reception of incoming SMS from SIM card
@@ -64,3 +79,4 @@ Text: Test message
 ## Sources
 
 -   [Official LilyGO T-Call SIM800 repository](https://github.com/Xinyuan-LilyGO/LilyGo-T-Call-SIM800)
+-   [LilyGO T-Call v1.4 Product Page](https://lilygo.cc/products/t-call-v1-4)
