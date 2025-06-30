@@ -179,7 +179,7 @@ const char htmlForm[] = R"rawliteral(
             <label for="chat_id">Chat ID:</label>
             <input name="chat_id" id="chat_id" type="text" required pattern="-?[0-9]+" />
             <div class="desc-warning">
-              After saving, the device will reboot and try to connect to WiFi. If connection fails, the access point " + AP_SSID + " will appear again.
+              After saving, the device will reboot and try to connect to WiFi. If connection fails, the access point %AP_SSID% will appear again.
             </div>
             <input type="submit" value="Save" />
             <div class="link">
@@ -421,7 +421,7 @@ void startAPMode() {
 
   String page = String(htmlForm);
   page.replace("%WIFI_OPTIONS%", wifiOptions);
-  page.replace("SMS2TG-SETUP", AP_SSID);
+  page.replace("%AP_SSID%", AP_SSID);
 
   serverWeb.on("/", HTTP_GET, [page]() mutable {
     serverWeb.send(200, "text/html", page);
@@ -603,8 +603,7 @@ void startWorkModeWeb() {
         preferences.begin("telegram", false);
         preferences.clear();
         preferences.end();
-        serverWeb.send(200, "text/html; charset=utf-8",
-            "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Settings Reset</title>"
+        String resetHtml = "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Settings Reset</title>"
             "<meta name='viewport' content='width=device-width, initial-scale=1.0' />"
             "<style>"
             "body {background: #f7f7f7; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;}"
@@ -620,11 +619,13 @@ void startWorkModeWeb() {
             "<div class='container'>"
             "<h2>✅ Settings Reset!</h2>"
             "<div class='desc'>Device is rebooting...<br><br>"
-            "<span class='wifi'>Connect to WiFi network <b>" AP_SSID "</b></span><br>"
+            "<span class='wifi'>Connect to WiFi network <b>%AP_SSID%</b></span><br>"
             "and go to:</div>"
             "<a class='button' href='http://192.168.4.1'>http://192.168.4.1</a>"
             "<div class='link'>If the page doesn't open, try manually entering the address in your browser.</div>"
-            "</div></body></html>");
+            "</div></body></html>";
+        resetHtml.replace("%AP_SSID%", AP_SSID);
+        serverWeb.send(200, "text/html; charset=utf-8", resetHtml);
         delay(1500);
         ESP.restart();
     });
