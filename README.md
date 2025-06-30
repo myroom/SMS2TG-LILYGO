@@ -25,6 +25,10 @@ This project is designed for the LilyGO T-Call SIM800 board (ESP32 + SIM800L) an
 
 For optimal signal reception and reliable SMS operation, it is **highly recommended** to install an external GSM/GPRS antenna. The built-in antenna may not provide sufficient signal strength in all locations. You can purchase a compatible external antenna from [LilyGO GSM/GPRS Antenna](https://lilygo.cc/products/gsm-gprs-antenna) which is specifically designed for T-Call v1.4 and will significantly improve signal quality and connection stability.
 
+### 3D Printable Case
+
+This project includes 3D printable case files in the `3D files/` folder. You can print a protective case for your LilyGO T-Call board using any 3D printer. The STL files are ready to print and will help protect your device during operation.
+
 ## Features
 
 -   Reception of incoming SMS from SIM card
