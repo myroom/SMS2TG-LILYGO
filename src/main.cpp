@@ -192,7 +192,7 @@ void asyncModemInit() {
       break;
     case INIT_RESTART:
       if (millis() - modemTimer > 1000) {
-        logPrint("Waiting for GSM network (30 sec)...");
+        logPrint("Waiting for GSM network (10 sec)...");
         modemTimer = millis();
         modemState = INIT_WAIT_NET;
       }
@@ -220,6 +220,10 @@ void asyncModemInit() {
       break;
     case INIT_READ_SMS:
       readAllUnreadSMS();
+      
+      // Send notification to Telegram that device is online
+      sendToTelegram("SMS2TG device is online and waiting for SMS. IP address " + WiFi.localIP().toString());
+      
       logPrintln("Waiting for incoming SMS...");
       modemInitOk = true;
       modemState = INIT_DONE;

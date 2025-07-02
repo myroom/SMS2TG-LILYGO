@@ -602,7 +602,6 @@ const char workHtml[] = R"rawliteral(
             button {
                 width: 100%;
                 padding: 8px 0;
-                background: #d32f2f;
                 color: #fff;
                 border: none;
                 border-radius: 7px;
@@ -610,9 +609,17 @@ const char workHtml[] = R"rawliteral(
                 font-weight: 600;
                 cursor: pointer;
                 transition: background 0.2s;
+                margin-bottom: 12px;
+            }
+            .btn-reboot {
+                background: #1976d2;
+            }
+            .btn-reboot:hover { background: #1256a3; }
+            .btn-reset {
+                background: #d32f2f;
                 margin-bottom: 0;
             }
-            button:hover { background: #b71c1c; }
+            .btn-reset:hover { background: #b71c1c; }
             @media (max-width: 600px) {
                 html, body {
                     height: 100vh;
@@ -663,8 +670,11 @@ const char workHtml[] = R"rawliteral(
             <div class="desc">Device is working. To reset settings, press the button below.</div>
             <div id="ipinfo" class="ipinfo">Device IP address: ...</div>
             <div id="logbox" class="logbox">Loading logs...</div>
+            <form action="/reboot" method="POST">
+                <button type="submit" class="btn-reboot">Reboot Device</button>
+            </form>
             <form action="/reset" method="POST">
-                <button type="submit">Reset Settings and Reboot</button>
+                <button type="submit" class="btn-reset">Reset Settings and Reboot</button>
             </form>
         </div>
     </body>
@@ -683,6 +693,32 @@ void startWorkModeWeb() {
     serverWeb.on("/modem_log", HTTP_GET, []() {
         String log = getLogBufferText();
         serverWeb.send(200, "text/plain; charset=utf-8", log);
+    });
+
+    serverWeb.on("/reboot", HTTP_POST, []() {
+        String rebootHtml = "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>Rebooting</title>"
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0' />"
+            "<style>"
+            "body {background: #f7f7f7; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;}"
+            ".container {background: #fff; padding: 32px 18px 24px 18px; border-radius: 12px; box-shadow: 0 2px 16px rgba(0,0,0,0.07); width: 100%; max-width: 420px; text-align: center;}"
+            "h2 {margin-bottom: 16px; font-size: 1.5em; font-weight: 600;}"
+            ".desc {font-size: 1.05em; color: #444; margin-bottom: 18px;}"
+            ".link {font-size: 1.1em; margin: 18px 0 0 0;}"
+            "a.button {display: inline-block; margin-top: 12px; padding: 10px 22px; background: #1976d2; color: #fff; border-radius: 7px; text-decoration: none; font-weight: 600; font-size: 1.1em; transition: background 0.2s;}"
+            "a.button:hover {background: #1256a3;}"
+            "@media (max-width: 600px) {.container{width:100vw;max-width:unset;border-radius:0;box-sizing:border-box;height:100vh;padding:18px 6vw;}}"
+            "</style>"
+            "<script>setTimeout(function(){window.location.href='/'}, 15000);</script>"
+            "</head><body>"
+            "<div class='container'>"
+            "<h2>🔄 Rebooting Device</h2>"
+            "<div class='desc'>Device is rebooting, please wait...<br><br>"
+            "You will be automatically redirected to the main page in 15 seconds.</div>"
+            "<a class='button' href='/'>Return to Main Page</a>"
+            "</div></body></html>";
+        serverWeb.send(200, "text/html; charset=utf-8", rebootHtml);
+        delay(1500);
+        ESP.restart();
     });
 
     serverWeb.on("/reset", HTTP_POST, []() {
