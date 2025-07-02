@@ -99,7 +99,7 @@ const char htmlForm[] = R"rawliteral(
         .password-row button { margin-left: 8px; padding: 0 10px; border: none; background: none; cursor: pointer; }
         .password-row svg { width: 28px; height: 28px; fill: #888; transition: fill 0.2s; }
         .password-row button:hover svg { fill: #1976d2; }
-        input[type="submit"] {
+        input[type="submit"], .btn-reset, .btn-back {
             width: 100%;
             padding: 8px 0;
             background: #1976d2;
@@ -111,8 +111,21 @@ const char htmlForm[] = R"rawliteral(
             cursor: pointer;
             transition: background 0.2s;
             margin-bottom: 22px;
+            text-decoration: none;
+            display: inline-block;
+            box-sizing: border-box;
         }
         input[type="submit"]:hover { background: #1256a3; }
+        .btn-reset {
+            background: #d32f2f;
+            margin-bottom: 12px;
+        }
+        .btn-reset:hover { background: #b71c1c; }
+        .btn-back {
+            background: #757575;
+            margin-bottom: 0;
+        }
+        .btn-back:hover { background: #616161; }
         .help-button {
             display: inline-block;
             margin-left: 8px;
@@ -244,7 +257,9 @@ const char htmlForm[] = R"rawliteral(
             <div class="desc-warning">
               After saving, the device will reboot and try to connect to WiFi. If connection fails, the access point %AP_SSID% will appear again.
             </div>
-            <input type="submit" value="Save" />
+            <input type="submit" value="Save and Reboot" />
+            <a href="/reset" class="btn-reset" onclick="return confirm('Are you sure you want to reset all settings? Device will reboot and enter setup mode.')">Reset All Settings</a>
+            <a href="/" class="btn-back">Back</a>
             <div class="link">
               Project link: <a href="https://github.com/myroom/SMS2TG-LILYGO" target="_blank">https://github.com/myroom/SMS2TG-LILYGO</a>
             </div>
@@ -599,7 +614,7 @@ const char workHtml[] = R"rawliteral(
             .ipinfo { font-size: 1em; margin-bottom: 12px; color: #1976d2; }
             .logbox { background: #222; color: #eee; font-size: 0.95em; text-align: left; border-radius: 7px; padding: 10px; min-height: 200px; max-height: 400px; overflow-y: auto; margin-bottom: 18px; font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace; }
             form { margin-bottom: 0; }
-            button {
+            button, .btn-link {
                 width: 100%;
                 padding: 8px 0;
                 color: #fff;
@@ -610,16 +625,18 @@ const char workHtml[] = R"rawliteral(
                 cursor: pointer;
                 transition: background 0.2s;
                 margin-bottom: 12px;
+                text-decoration: none;
+                display: inline-block;
+                box-sizing: border-box;
             }
+            .btn-settings {
+                background: #4caf50;
+            }
+            .btn-settings:hover { background: #388e3c; }
             .btn-reboot {
                 background: #1976d2;
             }
             .btn-reboot:hover { background: #1256a3; }
-            .btn-reset {
-                background: #d32f2f;
-                margin-bottom: 0;
-            }
-            .btn-reset:hover { background: #b71c1c; }
             @media (max-width: 600px) {
                 html, body {
                     height: 100vh;
@@ -667,29 +684,204 @@ const char workHtml[] = R"rawliteral(
     <body>
         <div class="container">
             <h2>SMS2TG-LILYGO (Working Mode)</h2>
-            <div class="desc">Device is working. To reset settings, press the button below.</div>
+            <div class="desc">Device is working. Use Settings to change configuration or reboot the device.</div>
             <div id="ipinfo" class="ipinfo">Device IP address: ...</div>
             <div id="logbox" class="logbox">Loading logs...</div>
+            <a href="/settings" class="btn-link btn-settings">Settings</a>
             <form action="/reboot" method="POST">
                 <button type="submit" class="btn-reboot">Reboot Device</button>
-            </form>
-            <form action="/reset" method="POST">
-                <button type="submit" class="btn-reset">Reset Settings and Reboot</button>
             </form>
         </div>
     </body>
     </html>
     )rawliteral";
 
+// Settings update successful page
+const char settingsUpdatedHtml[] = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings Updated</title>
+    <style>
+        body {
+            background: #f7f7f7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+        }
+        .container {
+            background: #fff;
+            padding: 32px 18px 24px 18px;
+            border-radius: 12px;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+            width: 100%;
+            max-width: 420px;
+            margin: 40px auto 0 auto;
+            text-align: center;
+        }
+        .icon {
+            font-size: 2.5em;
+            margin-bottom: 12px;
+        }
+        h2 { margin-bottom: 12px; font-size: 1.5em; font-weight: 600; }
+        .desc { font-size: 1.1em; color: #444; margin-bottom: 18px; }
+        .link {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 10px 22px;
+            background: #1976d2;
+            color: #fff;
+            border-radius: 7px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1em;
+            transition: background 0.2s;
+        }
+        .link:hover { background: #1256a3; }
+        @media (max-width: 600px) {
+            html, body {
+                height: 100vh;
+                min-height: 100vh;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                display: block;
+            }
+            .container {
+                width: 100vw;
+                min-width: unset;
+                max-width: unset;
+                margin: 0;
+                border-radius: 0;
+                box-sizing: border-box;
+                height: 100vh;
+                padding: 18px 6vw;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+        }
+    </style>
+    <script>
+        setTimeout(function() {
+            window.location.href = '/';
+        }, 3000);
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h2>✅ Settings Updated!</h2>
+        <div class="desc">Settings have been saved successfully.<br>You will be redirected to the main page automatically.</div>
+        <a href="/" class="link">Return to Main Page</a>
+    </div>
+</body>
+</html>
+)rawliteral";
+
 void startWorkModeWeb() {
     serverWeb.on("/", HTTP_GET, []() {
         serverWeb.send(200, "text/html; charset=utf-8", workHtml);
+    });
+
+    serverWeb.on("/settings", HTTP_GET, []() {
+        // Scan WiFi networks
+        int n = WiFi.scanNetworks();
+        String wifiOptions = "";
+        String seenSSIDs = ",";
+        
+        // Load current WiFi settings
+        String currentSSID, currentPass;
+        loadWiFiSettings(currentSSID, currentPass);
+        
+        for (int i = 0; i < n; ++i) {
+            String ssid = WiFi.SSID(i);
+            if (seenSSIDs.indexOf("," + ssid + ",") == -1) {
+                String selected = (ssid == currentSSID) ? " selected" : "";
+                wifiOptions += "<option value=\"" + ssid + "\"" + selected + ">" + ssid + "</option>";
+                seenSSIDs += ssid + ",";
+            }
+        }
+        wifiOptions += "<option value=\"__custom__\">Other network...</option>";
+
+        String page = String(htmlForm);
+        page.replace("%WIFI_OPTIONS%", wifiOptions);
+        page.replace("%AP_SSID%", AP_SSID);
+        
+        // Load current Telegram settings
+        String currentToken, currentChatId;
+        loadTelegramSettings(currentToken, currentChatId);
+        
+        // Pre-fill form fields
+        page.replace("name=\"password\" id=\"password\" type=\"password\" required", 
+                    "name=\"password\" id=\"password\" type=\"password\" value=\"" + currentPass + "\" required");
+        page.replace("name=\"token\" id=\"token\" type=\"text\" required", 
+                    "name=\"token\" id=\"token\" type=\"text\" value=\"" + currentToken + "\" required");
+        page.replace("name=\"chat_id\" id=\"chat_id\" type=\"text\" required", 
+                    "name=\"chat_id\" id=\"chat_id\" type=\"text\" value=\"" + currentChatId + "\" required");
+        
+        // Change form action to save_settings
+        page.replace("action=\"/save\"", "action=\"/save_settings\"");
+        
+        // Change title and description
+        page.replace("SMS2TG-LILYGO (Setup Mode)", "SMS2TG-LILYGO (Settings)");
+        page.replace("Hello! To enable the device to forward received SMS to Telegram, please enter your WiFi network details (only 2.4 GHz networks are supported) and Telegram settings.", 
+                    "Update your WiFi network details (only 2.4 GHz networks are supported) and Telegram settings.");
+        page.replace("After saving, the device will reboot and try to connect to WiFi. If connection fails, the access point", 
+                    "After saving, the settings will be updated. If WiFi settings are changed, the device will reboot. If connection fails, the access point");
+        
+        serverWeb.send(200, "text/html; charset=utf-8", page);
+    });
+
+    serverWeb.on("/save_settings", HTTP_POST, []() {
+        String ssid = serverWeb.arg("ssid_select");
+        if (ssid == "__custom__") ssid = serverWeb.arg("ssid");
+        String pass = serverWeb.arg("password");
+        String token = serverWeb.arg("token");
+        String chat_id = serverWeb.arg("chat_id");
+        
+        if (ssid.length() > 0 && pass.length() > 0 && token.length() > 0 && chat_id.length() > 0) {
+            // Load current WiFi settings to check if they changed
+            String currentSSID, currentPass;
+            loadWiFiSettings(currentSSID, currentPass);
+            bool wifiChanged = (ssid != currentSSID || pass != currentPass);
+            
+            // Save new settings
+            preferences.begin("wifi", false);
+            preferences.putString("ssid", ssid);
+            preferences.putString("password", pass);
+            preferences.end();
+            saveTelegramSettings(token, chat_id);
+            
+            if (wifiChanged) {
+                // If WiFi settings changed, show save page and reboot
+                serverWeb.send(200, "text/html; charset=utf-8", savedHtml);
+                delay(1500);
+                ESP.restart();
+            } else {
+                // If only Telegram settings changed, just show success and redirect
+                serverWeb.send(200, "text/html; charset=utf-8", settingsUpdatedHtml);
+            }
+        } else {
+            serverWeb.send(200, "text/html; charset=utf-8",
+                "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Error</title></head>"
+                "<body style='display:flex;align-items:center;justify-content:center;height:100vh;margin:0;'>"
+                "<div style='text-align:center;color:red;font-size:1.2em;'>Error: please fill all fields<br><br>"
+                "<a href='/settings' style='color:#1976d2;'>Go back to settings</a></div>"
+                "</body></html>");
+        }
     });
 
     serverWeb.on("/modem_status", HTTP_GET, []() {
         String json = getModemStatusJson();
         serverWeb.send(200, "application/json; charset=utf-8", json);
     });
+    
     serverWeb.on("/modem_log", HTTP_GET, []() {
         String log = getLogBufferText();
         serverWeb.send(200, "text/plain; charset=utf-8", log);
